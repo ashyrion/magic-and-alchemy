@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Documentation (internal development docs)
+docs/
+*.md
+!README.md

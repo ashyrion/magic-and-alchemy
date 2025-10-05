@@ -1,0 +1,352 @@
+/* 4x4 던전 맵 스타일 */
+.dungeon-map-grid {
+  padding: 30px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border-radius: 16px;
+  box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.4);
+  position: relative;
+  min-height: 600px;
+}
+
+/* 4x4 그리드 컨테이너 */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(4, 120px);
+  grid-template-rows: repeat(4, 120px);
+  gap: 10px;
+  justify-content: center;
+  position: relative;
+  width: 540px; /* (120px * 4) + (10px * 3) */
+  height: 540px;
+  margin: 0 auto;
+}
+
+
+
+/* 던전 카드 기본 스타일 */
+.dungeon-card {
+  width: 100px;
+  height: 100px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  perspective: 1000px;
+}
+
+.dungeon-card:hover {
+  transform: translateY(-2px);
+}
+
+.dungeon-card.accessible:hover {
+  transform: translateY(-4px) scale(1.05);
+}
+
+.dungeon-card.inaccessible {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dungeon-card.inaccessible:hover {
+  transform: none;
+}
+
+/* 카드 뒤집기 애니메이션 */
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.dungeon-card.flipping .card-inner {
+  transform: rotateY(180deg);
+}
+
+/* 카드 앞면과 뒷면 공통 스타일 */
+.card-front, .card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #4a5568;
+}
+
+/* 카드 뒷면 */
+.card-back {
+  background: linear-gradient(135deg, #2d3748, #4a5568);
+  border-color: #718096;
+}
+
+.card-pattern {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pattern-lines {
+  position: absolute;
+  width: 80%;
+  height: 80%;
+  background-image: 
+    linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.1) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.1) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
+.mystery-text {
+  font-size: 36px;
+  font-weight: bold;
+  color: #e2e8f0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+/* 카드 앞면 */
+.card-front {
+  background: linear-gradient(135deg, #1a202c, #2d3748);
+  transform: rotateY(180deg);
+}
+
+/* 뒤집어진 카드들 */
+.dungeon-card.flipped .card-inner,
+.card-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+/* 빈 카드 */
+.empty-card {
+  opacity: 0.3;
+}
+
+.card-content {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.empty-marker {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* 방 아이콘과 정보 */
+.room-icon {
+  font-size: 28px;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.room-info {
+  text-align: center;
+  color: #e2e8f0;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.room-name {
+  margin-bottom: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.room-difficulty {
+  font-size: 8px;
+  opacity: 0.8;
+  color: #ffd700;
+}
+
+/* 상태 마커 */
+.current-marker {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 16px;
+  animation: bounce 1s infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+}
+
+.cleared-marker {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  font-size: 20px;
+  color: #48bb78;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 접근 가능한 카드 글로우 */
+.dungeon-card.accessible {
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
+  animation: cardGlow 2s ease-in-out infinite alternate;
+}
+
+.dungeon-card.accessible .card-back {
+  border-color: #ed8936;
+  box-shadow: 0 0 15px rgba(237, 137, 54, 0.5);
+}
+
+/* 현재 방 스타일 */
+.dungeon-card.current-room {
+  animation: currentPulse 1.5s ease-in-out infinite;
+}
+
+.dungeon-card.current-room .card-front {
+  border-color: #4299e1;
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  box-shadow: 0 0 20px rgba(66, 153, 225, 0.6);
+}
+
+/* 클리어된 방 */
+.dungeon-card.cleared {
+  opacity: 0.8;
+  filter: grayscale(30%);
+}
+
+/* 전투 강조 효과 */
+.battle-highlight {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #e53e3e, #c53030);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.5);
+  animation: battlePop 1s ease-out;
+  z-index: 10;
+}
+
+.battle-text {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.dungeon-card.battle-highlighting {
+  animation: battleShake 0.5s ease-in-out infinite;
+  z-index: 5;
+}
+
+/* 연결선 오버레이 */
+.connections-overlay {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  width: calc(100% - 60px);
+  height: calc(100% - 60px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.connection-line {
+  position: absolute;
+  background: linear-gradient(135deg, #4a5568, #718096);
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  opacity: 0.8;
+  transition: all 0.3s ease;
+}
+
+/* 애니메이션 */
+@keyframes cardGlow {
+  from {
+    box-shadow: 0 4px 12px rgba(237, 137, 54, 0.4);
+  }
+  to {
+    box-shadow: 0 6px 16px rgba(237, 137, 54, 0.7), 0 0 20px rgba(237, 137, 54, 0.3);
+  }
+}
+
+@keyframes currentPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(66, 153, 225, 0.8);
+  }
+}
+
+@keyframes battlePop {
+  0% {
+    transform: translateX(-50%) scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.2) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes battleShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px) rotate(-1deg); }
+  75% { transform: translateX(2px) rotate(1deg); }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .grid-container {
+    grid-template-columns: repeat(4, 80px);
+    grid-template-rows: repeat(4, 80px);
+    gap: 8px;
+  }
+  
+  .dungeon-card {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .room-icon {
+    font-size: 20px;
+  }
+  
+  .room-info {
+    font-size: 8px;
+  }
+}
