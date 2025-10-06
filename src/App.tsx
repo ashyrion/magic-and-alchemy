@@ -54,9 +54,7 @@ function App() {
   // };
 
   // 스킬 강화 시스템 초기화 함수
-  const initializeSkillEnhancementSystem = () => {
-    const gameStore = useGameStore.getState();
-    const enhancementStore = useSkillEnhancementStore.getState();
+    const initializeSkillEnhancementSystem = () => {    const enhancementStore = useSkillEnhancementStore.getState();
     
     // 기본 스킬 6개 정의 (0단계에서 시작)
     const starterSkills: Skill[] = [
