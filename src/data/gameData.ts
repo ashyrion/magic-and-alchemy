@@ -307,6 +307,116 @@ export const testMaterials: Material[] = [
     weight: 0.2,
     icon: '⚡',
     description: '순수한 번개 에너지가 결정화된 것. 속도 증강 마법에 사용됩니다.'
+  },
+
+  // === 스킬 강화 전용 재료 ===
+  
+  // 화염 속성 스킬 강화 재료
+  {
+    id: 'herb-fire-flower',
+    name: '화염꽃',
+    type: 'material',
+    weight: 0.1,
+    icon: '🌺🔥',
+    description: '화염 마법의 힘을 담고 있는 신비한 꽃. 화염 스킬 강화에 필요합니다.'
+  },
+  {
+    id: 'crystal-flame-essence',
+    name: '화염 정수 결정',
+    type: 'material',
+    weight: 0.2,
+    icon: '💎🔥',
+    description: '순수한 화염 에너지가 결정화된 것. 고급 화염 스킬 강화에 필수입니다.'
+  },
+  
+  // 냉기 속성 스킬 강화 재료
+  {
+    id: 'herb-frost-leaf',
+    name: '서리잎',
+    type: 'material',
+    weight: 0.1,
+    icon: '🍃❄️',
+    description: '영원한 서리의 힘을 담은 잎사귀. 냉기 스킬 강화에 필요합니다.'
+  },
+  {
+    id: 'crystal-ice-essence',
+    name: '얼음 정수 결정',
+    type: 'material',
+    weight: 0.2,
+    icon: '💎❄️',
+    description: '순수한 냉기 에너지가 결정화된 것. 고급 냉기 스킬 강화에 필수입니다.'
+  },
+  
+  // 번개 속성 스킬 강화 재료
+  {
+    id: 'herb-thunder-grass',
+    name: '천둥풀',
+    type: 'material',
+    weight: 0.1,
+    icon: '🌿⚡',
+    description: '번개의 기운을 머금은 풀. 번개 스킬 강화에 필요합니다.'
+  },
+  {
+    id: 'crystal-lightning-essence',
+    name: '번개 정수 결정',
+    type: 'material',
+    weight: 0.2,
+    icon: '💎⚡',
+    description: '순수한 번개 에너지가 결정화된 것. 고급 번개 스킬 강화에 필수입니다.'
+  },
+  
+  // 독 속성 스킬 강화 재료
+  {
+    id: 'herb-toxic-mushroom',
+    name: '맹독버섯',
+    type: 'material',
+    weight: 0.1,
+    icon: '🍄☠️',
+    description: '치명적인 독을 품고 있는 버섯. 독 스킬 강화에 필요합니다.'
+  },
+  {
+    id: 'crystal-poison-essence',
+    name: '독 정수 결정',
+    type: 'material',
+    weight: 0.2,
+    icon: '💎☠️',
+    description: '순수한 독 에너지가 결정화된 것. 고급 독 스킬 강화에 필수입니다.'
+  },
+  
+  // 빛 속성 스킬 강화 재료
+  {
+    id: 'herb-moonlight-petal',
+    name: '달빛 꽃잎',
+    type: 'material',
+    weight: 0.1,
+    icon: '🌸🌙',
+    description: '달빛의 축복을 받은 꽃잎. 빛 스킬 강화에 필요합니다.'
+  },
+  {
+    id: 'crystal-light-essence',
+    name: '빛 정수 결정',
+    type: 'material',
+    weight: 0.2,
+    icon: '💎✨',
+    description: '순수한 빛 에너지가 결정화된 것. 고급 빛 스킬 강화에 필수입니다.'
+  },
+  
+  // 어둠 속성 스킬 강화 재료
+  {
+    id: 'herb-shadow-root',
+    name: '그림자뿌리',
+    type: 'material',
+    weight: 0.1,
+    icon: '🌑🌿',
+    description: '어둠의 힘을 흡수한 뿌리. 어둠 스킬 강화에 필요합니다.'
+  },
+  {
+    id: 'crystal-dark-essence',
+    name: '어둠 정수 결정',
+    type: 'material',
+    weight: 0.2,
+    icon: '💎🌑',
+    description: '순수한 어둠 에너지가 결정화된 것. 고급 어둠 스킬 강화에 필수입니다.'
   }
 ];
 
