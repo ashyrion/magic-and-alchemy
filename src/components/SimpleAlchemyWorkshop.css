@@ -1,0 +1,563 @@
+/* 단순한 연금술 워크샵 스타일 */
+.simple-alchemy-workshop {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #1a202c, #2d3748);
+  border-radius: 15px;
+  color: #f7fafc;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* 헤더 */
+.workshop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  border: 2px solid #4a5568;
+}
+
+.workshop-header h2 {
+  color: #ffd700;
+  font-size: 2em;
+  margin: 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.level-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.level {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 1.1em;
+}
+
+.exp-bar {
+  position: relative;
+  width: 200px;
+  height: 25px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 15px;
+  border: 2px solid #4a5568;
+  overflow: hidden;
+}
+
+.exp-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #4299e1, #63b3ed);
+  border-radius: 15px;
+  transition: width 0.3s ease;
+}
+
+.exp-bar span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.8em;
+  font-weight: 600;
+  z-index: 2;
+}
+
+/* 탭 네비게이션 */
+.workshop-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 25px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 8px;
+  border-radius: 15px;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #a0aec0;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.tab.active {
+  background: linear-gradient(135deg, #ffd700, #f6e05e);
+  color: #2d3748;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+}
+
+/* 워크샵 콘텐츠 */
+.workshop-content {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+}
+
+/* 포션 제작 섹션 */
+.craft-section {
+  grid-column: span 2;
+}
+
+.recipes-panel {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid #4a5568;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.recipes-panel h3 {
+  color: #ffd700;
+  margin: 0 0 20px 0;
+  font-size: 1.3em;
+}
+
+.recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.recipe-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #4a5568;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.recipe-item:hover {
+  border-color: #ffd700;
+  transform: translateY(-2px);
+}
+
+.recipe-item.selected {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.recipe-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recipe-icon {
+  font-size: 2em;
+  min-width: 50px;
+  text-align: center;
+}
+
+.recipe-info {
+  flex-grow: 1;
+}
+
+.recipe-name {
+  font-weight: 600;
+  font-size: 1.1em;
+  margin-bottom: 5px;
+}
+
+.recipe-description {
+  color: #a0aec0;
+  font-size: 0.9em;
+  margin-bottom: 8px;
+}
+
+.recipe-materials {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.material-need {
+  background: rgba(159, 122, 234, 0.2);
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.8em;
+  border: 1px solid #9f7aea;
+}
+
+.recipe-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: right;
+}
+
+.success-rate {
+  color: #68d391;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.exp-gain {
+  color: #4299e1;
+  font-size: 0.8em;
+}
+
+.craft-button {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #68d391, #48bb78);
+  color: white;
+  font-size: 1.1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.craft-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(104, 211, 145, 0.4);
+}
+
+.craft-button:disabled {
+  background: #718096;
+  cursor: not-allowed;
+}
+
+/* 업그레이드 섹션들 */
+.upgrade-item-section,
+.upgrade-skill-section {
+  grid-column: span 2;
+}
+
+.upgrade-panel,
+.skill-panel {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid #4a5568;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.upgrade-panel h3,
+.skill-panel h3 {
+  color: #ffd700;
+  margin: 0 0 20px 0;
+  font-size: 1.3em;
+}
+
+.upgrade-path {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.upgrade-path select {
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #4a5568;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 1em;
+}
+
+.arrow {
+  color: #ffd700;
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+.test-item-selector {
+  margin: 20px 0;
+}
+
+.test-item-selector h4 {
+  color: #e2e8f0;
+  margin-bottom: 10px;
+}
+
+.item-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.test-item {
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #4a5568;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.test-item:hover {
+  transform: translateY(-2px);
+}
+
+.test-item.selected {
+  background: rgba(255, 215, 0, 0.2);
+}
+
+.skill-tier-selector {
+  margin-bottom: 20px;
+}
+
+.skill-tier-selector label {
+  display: block;
+  margin-bottom: 10px;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.skill-tier-selector select {
+  width: 100%;
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #4a5568;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 1em;
+}
+
+.upgrade-options {
+  margin: 20px 0;
+}
+
+.upgrade-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.upgrade-info {
+  background: rgba(159, 122, 234, 0.2);
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border: 2px solid #9f7aea;
+}
+
+.upgrade-button {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #9f7aea, #805ad5);
+  color: white;
+  font-size: 1.1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.upgrade-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(159, 122, 234, 0.4);
+}
+
+.upgrade-button:disabled {
+  background: #718096;
+  cursor: not-allowed;
+}
+
+/* 재료 현황 */
+.materials-status {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid #4a5568;
+  border-radius: 12px;
+  padding: 15px;
+  grid-row: span 2;
+}
+
+.materials-status h3 {
+  color: #ffd700;
+  margin: 0 0 15px 0;
+  font-size: 1.1em;
+}
+
+.materials-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.material-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  border: 1px solid #4a5568;
+}
+
+.material-icon {
+  font-size: 1.2em;
+  min-width: 25px;
+}
+
+.material-name {
+  flex-grow: 1;
+  font-size: 0.9em;
+  color: #e2e8f0;
+}
+
+.material-count {
+  font-weight: 600;
+  color: #68d391;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* 통계 패널 */
+.stats-panel {
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid #4a5568;
+  border-radius: 12px;
+  padding: 15px;
+}
+
+.stats-panel h3 {
+  color: #ffd700;
+  margin: 0 0 15px 0;
+  font-size: 1.1em;
+}
+
+.stats-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  border: 1px solid #4a5568;
+}
+
+.stat-label {
+  color: #e2e8f0;
+  font-size: 0.9em;
+}
+
+.stat-value {
+  color: #68d391;
+  font-weight: 600;
+}
+
+/* 결과 메시지 */
+.result-message {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  background: linear-gradient(135deg, #68d391, #48bb78);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 6px 25px rgba(104, 211, 145, 0.4);
+  z-index: 1000;
+  animation: slideIn 0.4s ease;
+  max-width: 300px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 반응형 디자인 */
+@media (max-width: 1000px) {
+  .workshop-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .materials-status {
+    grid-row: auto;
+  }
+  
+  .craft-section,
+  .upgrade-item-section,
+  .upgrade-skill-section {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .simple-alchemy-workshop {
+    padding: 15px;
+    margin: 10px;
+  }
+  
+  .workshop-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .level-info {
+    justify-content: center;
+  }
+  
+  .exp-bar {
+    width: 150px;
+  }
+  
+  .workshop-tabs {
+    flex-direction: column;
+  }
+  
+  .recipe-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+  
+  .recipe-stats {
+    text-align: center;
+  }
+  
+  .upgrade-path {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .arrow {
+    transform: rotate(90deg);
+    align-self: center;
+  }
+}

@@ -1,6 +1,34 @@
+// 새로운 연금술 레시피 정의
+export interface NewAlchemyRecipe {
+  id: string;
+  name: string;
+  description: string;
+  type: 'potion' | 'enhancement' | 'transmutation' | 'special';
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  icon: string;
+  
+  materials: Array<{ id: string; count: number }>;
+  results: Array<{ type: string; id: string; count: number; quality?: string }>;
+  
+  successRate: number;
+  experienceGain: number;
+  goldCost: number;
+  
+  // 레시피 발견 조건
+  discoveryRequirements?: {
+    level?: number;
+    monstersKilled?: number;
+    itemsUpgraded?: number;
+    otherRecipes?: string[];
+  };
+  
+  dropRate: number; // 몬스터에서 드롭될 확률 (%)
+  dropFromMonsters?: string[]; // 특정 몬스터에서만 드롭되는 경우
+}
+
 import type { Recipe } from '../types/gameTypes';
 
-// 연금술 레시피 데이터 - 난이도별 분류
+// 기존 레시피 (하위 호환성)
 export const alchemyRecipes: Recipe[] = [
   // === 초급 레시피 (성공률 80%) ===
   {
@@ -303,4 +331,120 @@ export const getBaseSuccessRate = (recipeId: string): number => {
   if (legendaryRecipes.includes(recipeId)) return 20;
   
   return 50; // 기본값
+};
+
+// 새로운 연금술 시스템 레시피들
+export const newAlchemyRecipes: NewAlchemyRecipe[] = [
+  // 기본 포션 레시피
+  {
+    id: 'basic-health-potion',
+    name: '기본 체력 포션',
+    description: '체력을 50 회복하는 기본적인 포션',
+    type: 'potion',
+    rarity: 'common',
+    icon: '🧪',
+    materials: [
+      { id: 'essence-fragment', count: 2 },
+      { id: 'monster-blood', count: 1 }
+    ],
+    results: [
+      { type: 'consumable', id: 'health-potion-small', count: 1 }
+    ],
+    successRate: 95,
+    experienceGain: 10,
+    goldCost: 50,
+    dropRate: 5,
+    discoveryRequirements: {
+      level: 1
+    }
+  },
+  
+  {
+    id: 'basic-mana-potion',
+    name: '기본 마나 포션',
+    description: '마나를 30 회복하는 기본적인 포션',
+    type: 'potion',
+    rarity: 'common',
+    icon: '🧪',
+    materials: [
+      { id: 'essence-fragment', count: 3 },
+      { id: 'bone-dust', count: 1 }
+    ],
+    results: [
+      { type: 'consumable', id: 'mana-potion-small', count: 1 }
+    ],
+    successRate: 95,
+    experienceGain: 10,
+    goldCost: 50,
+    dropRate: 5,
+    discoveryRequirements: {
+      level: 1
+    }
+  },
+
+  // 개선된 포션 레시피
+  {
+    id: 'improved-health-potion',
+    name: '개선된 체력 포션',
+    description: '체력을 150 회복하는 강화된 포션',
+    type: 'potion',
+    rarity: 'uncommon',
+    icon: '🧪',
+    materials: [
+      { id: 'magic-crystal', count: 2 },
+      { id: 'monster-blood', count: 3 },
+      { id: 'elemental-core', count: 1 }
+    ],
+    results: [
+      { type: 'consumable', id: 'health-potion-medium', count: 1 }
+    ],
+    successRate: 80,
+    experienceGain: 25,
+    goldCost: 200,
+    dropRate: 2,
+    discoveryRequirements: {
+      level: 5,
+      otherRecipes: ['basic-health-potion']
+    }
+  },
+
+  // 업그레이드 촉진제 레시피들
+  {
+    id: 'upgrade-catalyst-basic',
+    name: '기본 업그레이드 촉진제',
+    description: '아이템 업그레이드 성공률을 10% 증가시킨다',
+    type: 'enhancement',
+    rarity: 'uncommon',
+    icon: '⚡',
+    materials: [
+      { id: 'magic-crystal', count: 5 },
+      { id: 'elemental-core', count: 3 },
+      { id: 'essence-fragment', count: 20 }
+    ],
+    results: [
+      { type: 'material', id: 'upgrade-catalyst', count: 1 }
+    ],
+    successRate: 70,
+    experienceGain: 30,
+    goldCost: 300,
+    dropRate: 1,
+    discoveryRequirements: {
+      level: 10,
+      itemsUpgraded: 5
+    }
+  }
+];
+
+// 레시피 발견 확률 계산 함수
+export const calculateRecipeDropChance = (recipe: NewAlchemyRecipe, playerLevel: number, bonuses: Record<string, number> = {}): number => {
+  let baseChance = recipe.dropRate;
+  
+  // 레벨에 따른 보너스 (높은 레벨일수록 레어한 레시피 발견 확률 증가)
+  const levelBonus = Math.min(playerLevel * 0.1, recipe.rarity === 'legendary' ? 2 : 5);
+  
+  // 연금술 마스터리에 따른 보너스
+  const masteryBonus = bonuses.discoveryBonus || 0;
+  
+  return Math.min(baseChance + levelBonus + masteryBonus, 
+                 recipe.rarity === 'legendary' ? 5 : 25);
 };
