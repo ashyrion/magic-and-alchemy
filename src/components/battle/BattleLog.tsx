@@ -43,12 +43,25 @@ export const BattleLog = () => {
 
     // 데미지 디테일 표시
     if (damage) {
-      const criticalText = damage.isCritical ? ' 치명타!' : '';
-      const dodgeText = damage.wasDodged ? ' (회피됨)' : '';
-      detailsText += ` [${damage.total} 데미지${criticalText}${dodgeText}]`;
+      const criticalText = damage.isCritical ? ' 💥치명타!' : '';
+      const dodgeText = damage.wasDodged ? ' 🌀회피됨' : '';
+      const typeText = damage.type ? ` (${damage.type})` : '';
       
+      detailsText += ` [${damage.total} 데미지${typeText}${criticalText}${dodgeText}]`;
+      
+      // 상세 정보 표시 (회피 또는 크리티컬 시)
       if (damage.isCritical || damage.wasDodged) {
         detailsText += ` (명중률: ${Math.round(damage.hitChance)}%, 주사위: ${damage.hitRoll})`;
+      }
+      
+      // 방어력 경감 정보
+      if (damage.defenseMitigation > 0 && !damage.wasDodged) {
+        detailsText += ` [방어력 -${damage.defenseMitigation}]`;
+      }
+      
+      // 크리티컬 보너스 정보
+      if (damage.criticalBonus > 0) {
+        detailsText += ` [크리 보너스 +${damage.criticalBonus}]`;
       }
     }
 

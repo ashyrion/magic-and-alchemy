@@ -51,50 +51,95 @@ export const CharacterStatus = () => {
       </div>
 
       {/* 기본 스탯 */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <span className="text-gray-400">STR:</span>{' '}
-          <span className="flex items-center gap-1">
-            {totalStats.strength}
-            {totalStats.strength > base.strength && (
-              <span className="text-green-500 text-xs">
-                (+{totalStats.strength - base.strength})
+      <div className="space-y-3">
+        {/* 핵심 3 스탯 */}
+        <div className="text-sm">
+          <h4 className="font-semibold text-blue-300 mb-2">기본 스탯</h4>
+          <div className="grid grid-cols-1 gap-1">
+            <div className="flex justify-between">
+              <span className="text-gray-400">힘 (STR):</span>
+              <span className="flex items-center gap-1">
+                {totalStats.strength}
+                {totalStats.strength > base.strength && (
+                  <span className="text-green-500 text-xs">
+                    (+{totalStats.strength - base.strength})
+                  </span>
+                )}
               </span>
-            )}
-          </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">민첩 (AGI):</span>
+              <span className="flex items-center gap-1">
+                {totalStats.agility}
+                {totalStats.agility > base.agility && (
+                  <span className="text-green-500 text-xs">
+                    (+{totalStats.agility - base.agility})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">지능 (INT):</span>
+              <span className="flex items-center gap-1">
+                {totalStats.intelligence}
+                {totalStats.intelligence > base.intelligence && (
+                  <span className="text-green-500 text-xs">
+                    (+{totalStats.intelligence - base.intelligence})
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
         </div>
-        <div>
-          <span className="text-gray-400">DEF:</span>{' '}
-          <span className="flex items-center gap-1">
-            {totalStats.defense}
-            {totalStats.defense > base.defense && (
-              <span className="text-green-500 text-xs">
-                (+{totalStats.defense - base.defense})
-              </span>
-            )}
-          </span>
-        </div>
-        <div>
-          <span className="text-gray-400">ATK:</span>{' '}
-          <span className="flex items-center gap-1">
-            {totalStats.attack}
-            {totalStats.attack > ((base.strength || 0) + (base.attack || 0)) && (
-              <span className="text-green-500 text-xs">
-                (+{totalStats.attack - ((base.strength || 0) + (base.attack || 0))})
-              </span>
-            )}
-          </span>
-        </div>
-        <div>
-          <span className="text-gray-400">INT:</span>{' '}
-          <span className="flex items-center gap-1">
-            {totalStats.intelligence}
-            {totalStats.intelligence > base.intelligence && (
-              <span className="text-green-500 text-xs">
-                (+{totalStats.intelligence - base.intelligence})
-              </span>
-            )}
-          </span>
+
+        {/* 전투 스탯 */}
+        <div className="text-sm">
+          <h4 className="font-semibold text-red-300 mb-2">전투 스탯</h4>
+          <div className="grid grid-cols-1 gap-1">
+            <div className="flex justify-between">
+              <span className="text-gray-400">공격력:</span>
+              <span className="text-xs text-gray-500">{totalStats.attack} (힘×2)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">방어력:</span>
+              <span className="text-xs text-gray-500">{totalStats.defense.toFixed(1)} (힘×1.5 + 민×0.5)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">치명타율:</span>
+              <span className="text-xs text-gray-500">{totalStats.criticalRate.toFixed(1)}% (민×0.5%)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">치명타피해:</span>
+              <span className="text-xs text-gray-500">{totalStats.criticalDamage.toFixed(0)}% (지×2% + 150%)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">회피율:</span>
+              <span className="text-xs text-gray-500">{totalStats.evasion.toFixed(1)}% (민×1%)</span>
+            </div>
+          </div>
+          
+          {/* 속성 저항 */}
+          <div className="mt-3 pt-3 border-t border-gray-600">
+            <h4 className="text-sm font-semibold mb-2 text-gray-300">속성 저항</h4>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-400">화염 저항:</span>
+                <span className="text-red-400">{totalStats.fireResist} (지×0.5)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">냉기 저항:</span>
+                <span className="text-blue-400">{totalStats.iceResist} (지×0.5)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">번개 저항:</span>
+                <span className="text-yellow-400">{totalStats.lightningResist} (지×0.5)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">독 저항:</span>
+                <span className="text-green-400">{totalStats.poisonResist} (지×0.5)</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

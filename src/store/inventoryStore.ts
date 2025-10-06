@@ -58,13 +58,13 @@ const logEquipmentChange = (itemName: string, action: 'equip' | 'unequip', befor
 interface InventoryStore extends InventoryState {
   // 기본 인벤토리 관리
   addItem: (item: Item) => boolean;
-  removeItem: (itemId: string) => boolean;
+  removeItem: (instanceId: string) => boolean;
   addMaterial: (material: Material) => boolean;
   removeMaterial: (materialId: string) => boolean;
-  useItem: (itemId: string) => boolean;
+  useItem: (instanceId: string) => boolean;
   
   // 장비 관리
-  equipItem: (itemId: string, slot?: EquipmentSlot) => boolean;
+  equipItem: (instanceId: string, slot?: EquipmentSlot) => boolean;
   unequipItem: (slot: EquipmentSlot) => boolean;
   swapEquipment: (slot: EquipmentSlot, newItemId: string) => boolean;
   
@@ -151,20 +151,38 @@ export const useInventoryStore = create<InventoryStore>()(
           return false;
         }
 
+        // 각 아이템 인스턴스에 고유 ID 부여
+        const itemWithInstanceId = { 
+          ...item, 
+          instanceId: `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          isEquipped: false 
+        };
+
         set((state) => ({
-          items: [...state.items, { ...item, isEquipped: false }]
+          items: [...state.items, itemWithInstanceId]
         }));
 
         get().updateWeightStatus();
         return true;
       },
       
-      removeItem(itemId: string) {
-        const item = get().findItem(itemId);
-        if (!item || item.isEquipped) return false;
+      removeItem(instanceId: string) {
+        const { items } = get();
+        const itemIndex = items.findIndex(item => item.instanceId === instanceId);
+        
+        if (itemIndex === -1) {
+          console.log(`[removeItem] 아이템을 찾을 수 없습니다: ${instanceId}`);
+          return false;
+        }
+        
+        const item = items[itemIndex];
+        if (item.isEquipped) {
+          console.log(`[removeItem] 장착된 아이템은 제거할 수 없습니다: ${item.name}`);
+          return false;
+        }
 
         set((state) => ({
-          items: state.items.filter(item => item.id !== itemId)
+          items: state.items.filter((_, index) => index !== itemIndex)
         }));
 
         get().updateWeightStatus();
@@ -204,10 +222,11 @@ export const useInventoryStore = create<InventoryStore>()(
         return removed;
       },
       
-      useItem(itemId: string) {
-        console.log(`[useItem] 시작 - 아이템 ID: ${itemId}`);
+      useItem(instanceId: string) {
+        console.log(`[useItem] 시작 - 아이템 인스턴스 ID: ${instanceId}`);
         
-        const item = get().findItem(itemId);
+        const { items } = get();
+        const item = items.find(item => item.instanceId === instanceId);
         console.log(`[useItem] 아이템 찾기 결과:`, item);
         
         if (!item) {
@@ -426,7 +445,7 @@ export const useInventoryStore = create<InventoryStore>()(
           
           // 효과가 적용되었다면 아이템 제거
           if (effectApplied) {
-            const removed = get().removeItem(itemId);
+            const removed = get().removeItem(instanceId);
             if (removed) {
               console.log(`${item.name} 사용 완료 및 제거됨`);
               return true;
@@ -445,9 +464,9 @@ export const useInventoryStore = create<InventoryStore>()(
       },
 
       // 장비 관리 액션
-      equipItem(itemId: string, slot?: EquipmentSlot) {
+      equipItem(instanceId: string, slot?: EquipmentSlot) {
         const { items } = get();
-        const itemIndex = items.findIndex(item => item.id === itemId && !item.isEquipped);
+        const itemIndex = items.findIndex(item => item.instanceId === instanceId && !item.isEquipped);
         if (itemIndex === -1) {
           console.log('장착 실패: 아이템을 찾을 수 없습니다.');
           return false;

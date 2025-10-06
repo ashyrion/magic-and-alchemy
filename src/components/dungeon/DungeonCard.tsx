@@ -130,6 +130,16 @@ export const DungeonCard: React.FC<DungeonCardProps> = ({
             {room.difficulty && room.difficulty > 1 && (
               <div className="room-difficulty">Lv.{Math.floor(room.difficulty)}</div>
             )}
+            {room.type === 'battle' && room.payload && 'enemy' in room.payload && (
+              <div className="enemy-name text-xs text-gray-600 mt-1">
+                {room.payload.enemy.name}
+              </div>
+            )}
+            {room.type === 'boss' && room.payload && 'boss' in room.payload && (
+              <div className="boss-name text-xs text-red-600 mt-1 font-bold">
+                👑 {room.payload.boss.name}
+              </div>
+            )}
           </div>
           
           {isCurrentRoom && (

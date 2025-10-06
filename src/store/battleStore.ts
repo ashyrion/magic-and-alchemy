@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { BattleState, BattleLog, Combatant } from '../types/battle'
-import type { Skill } from '../types/gameTypes'
+import type { Skill, BattleSkillState } from '../types/gameTypes'
+import { statusEffectsData, skillStatusEffects } from '../data/statusEffects'
 
 interface BattleResult {
   victory: boolean;
@@ -15,6 +16,8 @@ interface BattleResult {
 interface BattleStore extends BattleState {
   battleResult: BattleResult | null;
   showBattleResult: boolean;
+  skillCooldowns: BattleSkillState[];  // 스킬 쿨타임 상태
+  
   startBattle: (player: Combatant, enemy: Combatant) => void
   endBattle: (victory: boolean, enemy: Combatant, rewards: BattleResult['rewards']) => void
   addLog: (message: string, type: BattleLog['type'], details?: BattleLog['details']) => void
@@ -27,6 +30,22 @@ interface BattleStore extends BattleState {
   syncWithGameStore: () => void
   attemptFlee: () => void
   closeBattleResult: () => void
+  
+  // 스킬 쿨타임 관리
+  initializeSkillCooldowns: (skills: Skill[]) => void
+  isSkillOnCooldown: (skillId: string) => boolean
+  getSkillCooldown: (skillId: string) => number
+  applySkillCooldown: (skillId: string) => void
+  reduceAllCooldowns: () => void
+  resetAllCooldowns: () => void
+  
+  // 상태 효과 관리
+  applyStatusEffect: (target: 'player' | 'enemy', effectId: string) => void
+  removeStatusEffect: (target: 'player' | 'enemy', effectId: string) => void
+  processStatusEffects: (target: 'player' | 'enemy') => void
+  processAllStatusEffects: () => void
+  updateStatusEffectDurations: (target: 'player' | 'enemy') => void
+  checkDisablingEffects: (target: 'player' | 'enemy') => boolean
 }
 
 export const useBattleStore = create<BattleStore>((set, get) => ({
@@ -39,8 +58,12 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
   battleLogs: [],
   battleResult: null,
   showBattleResult: false,
+  skillCooldowns: [],              // 스킬 쿨타임 상태
 
   startBattle: (player: Combatant, enemy: Combatant) => {
+    // 스킬 쿨타임 초기화
+    get().initializeSkillCooldowns(player.skills);
+    
     set({
       inBattle: true,
       player,
@@ -54,6 +77,9 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
 
     endBattle: (victory: boolean, enemy: Combatant, rewards: BattleResult['rewards']) => {
     console.log('endBattle 호출됨:', { victory, enemy: enemy.name, rewards });
+    
+    // 전투 종료 시 모든 스킬 쿨타임 리셋
+    get().resetAllCooldowns();
     
     const battleResult: BattleResult = {
       victory,
@@ -191,22 +217,69 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
   },
 
   nextTurn: () => {
-    const { turnOrder, currentTurn, enemy } = get()
+    const { turnOrder, currentTurn, enemy, player } = get()
     const currentIndex = turnOrder.indexOf(currentTurn || '')
     const nextIndex = (currentIndex + 1) % turnOrder.length
     const nextTurnId = turnOrder[nextIndex]
+    
+    // 새로운 라운드 시작 시 추가 처리
+    if (nextIndex === 0) {
+      get().reduceAllCooldowns();
+      
+      // 모든 상태 효과 처리 (DOT/HOT 등)
+      get().processAllStatusEffects();
+      
+      // 상태 효과 지속시간 감소
+      get().updateStatusEffectDurations('player');
+      get().updateStatusEffectDurations('enemy');
+      
+      // 전투 종료 체크 (DOT로 인한 죽음)
+      if (player && player.stats.hp <= 0) {
+        get().addLog(`${player.name}이(가) 상태 효과로 인해 쓰러졌습니다!`, 'system');
+        const rewards = { experience: 0, gold: 0, items: [] };
+        get().endBattle(false, enemy!, rewards);
+        return;
+      }
+      
+      if (enemy && enemy.stats.hp <= 0) {
+        get().addLog(`${enemy.name}이(가) 상태 효과로 인해 쓰러졌습니다!`, 'system');
+        const rewards = {
+          experience: Math.floor((enemy.level || 1) * 10 + Math.random() * 20),
+          gold: Math.floor((enemy.level || 1) * 5 + Math.random() * 10),
+          items: []
+        };
+        get().endBattle(true, enemy, rewards);
+        return;
+      }
+    }
     
     set(state => ({
       currentTurn: nextTurnId,
       currentRound: nextIndex === 0 ? state.currentRound + 1 : state.currentRound
     }))
 
-    // 적의 턴이면 자동으로 적 행동 실행
-    if (enemy && nextTurnId === enemy.id) {
+    // 행동 불가 효과 체크
+    const isPlayerDisabled = get().checkDisablingEffects('player');
+    const isEnemyDisabled = get().checkDisablingEffects('enemy');
+    
+    // 적의 턴이면서 행동 가능하면 자동으로 적 행동 실행
+    if (enemy && nextTurnId === enemy.id && !isEnemyDisabled) {
       // 약간의 딜레이를 주어 턴 변경이 보이도록 함
       setTimeout(() => {
         get().enemyAction()
       }, 1000)
+    } else if (nextTurnId === enemy?.id && isEnemyDisabled) {
+      // 적이 행동 불가 상태면 턴 스킵
+      get().addLog(`${enemy.name}이(가) 상태 효과로 인해 행동할 수 없습니다!`, 'system');
+      setTimeout(() => {
+        get().nextTurn()
+      }, 500)
+    } else if (nextTurnId === player?.id && isPlayerDisabled) {
+      // 플레이어가 행동 불가 상태면 턴 스킵
+      get().addLog(`${player.name}이(가) 상태 효과로 인해 행동할 수 없습니다!`, 'system');
+      setTimeout(() => {
+        get().nextTurn()
+      }, 500)
     }
   },
 
@@ -214,54 +287,73 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     const { player, enemy, currentTurn } = get()
     if (!player || !enemy || currentTurn !== player.id) return
 
-    // 명중률 계산
-    const hitChance = Math.min(95, Math.max(5, (player.stats.accuracy || 85) - (enemy.stats.evasion || 0)))
-    const hitRoll = Math.random() * 100
-    const isHit = hitRoll <= hitChance
+    // 5단계 방어 시스템 적용
+    // 1단계: 회피 체크
+    const playerAccuracy = player.stats.accuracy || 85
+    const enemyEvasion = enemy.stats.evasion || 10
+    const attackHitChance = Math.max(10, playerAccuracy - enemyEvasion)
+    const evaded = Math.random() * 100 > attackHitChance
 
-    if (!isHit) {
-      // 회피됨
-      const dodgeDetail = {
-        base: 0,
-        skill: 0,
-        criticalBonus: 0,
-        defenseMitigation: 0,
-        total: 0,
-        isCritical: false,
-        wasDodged: true,
-        hitChance,
-        hitRoll: Math.round(hitRoll)
+    let damage = 0
+    let logMessage = `${player.name}이(가) 기본 공격을 시도했습니다!`
+    
+    if (evaded) {
+      logMessage += ` 하지만 ${enemy.name}이(가) 회피했습니다!`
+    } else {
+      // 2단계: 기본 데미지 계산
+      const basePower = (player.stats.strength || 0) + (player.stats.attack || 0)
+      const randomMultiplier = 0.8 + Math.random() * 0.4 // 80% ~ 120% 랜덤
+      damage = Math.floor(basePower * randomMultiplier)
+      
+      // 3단계: 크리티컬 히트 체크
+      const playerCriticalChance = player.stats.criticalRate || 5
+      const isCritical = Math.random() * 100 < playerCriticalChance
+      if (isCritical) {
+        damage = Math.floor(damage * 1.5)
+        logMessage += ` 크리티컬 히트!`
       }
+      
+      // 4단계: 방어력 적용
+      damage = Math.max(1, damage - (enemy.stats.defense || 0))
+      
+      // 5단계: 데미지 경감 적용
+      const enemyDamageReduction = enemy.stats.damageReduction || 0
+      if (enemyDamageReduction > 0) {
+        const reducedAmount = Math.floor(damage * enemyDamageReduction / 100)
+        damage = Math.max(1, damage - reducedAmount)
+        logMessage += ` (${enemyDamageReduction}% 데미지 경감 적용)`
+      }
+      
+      logMessage += ` ${damage}의 데미지를 입혔습니다!`
+    }
+    
+    // 전투 로그 추가 (실제 크리티컬 결과 사용)
+    const actualCritical = !evaded && Math.random() * 100 < (player.stats.criticalRate || 5)
+    const hitRoll = Math.random() * 100
+    get().addLog(logMessage, 'player-action', {
+      source: player.name,
+      target: enemy.name,
+      damage: {
+        base: evaded ? 0 : Math.floor(((player.stats.strength || 0) + (player.stats.attack || 0)) * (0.8 + Math.random() * 0.4)),
+        skill: 0,
+        criticalBonus: actualCritical ? Math.floor(damage * 0.5) : 0,
+        defenseMitigation: Math.max(0, (enemy.stats.defense || 0)),
+        total: evaded ? 0 : damage,
+        isCritical: actualCritical,
+        wasDodged: evaded,
+        hitChance: attackHitChance,
+        hitRoll: Math.round(hitRoll),
+        type: 'physical'
+      }
+    })
 
-      get().addLog(`${player.name}의 공격을 ${enemy.name}이(가) 회피했습니다!`, 'player-action', {
-        source: player.name,
-        target: enemy.name,
-        damage: dodgeDetail
-      })
+    if (evaded) {
       get().nextTurn()
       return
     }
 
-    // 크리티컬 계산
-    const criticalChance = player.stats.criticalRate || 5
-    const criticalRoll = Math.random() * 100
-    const isCritical = criticalRoll <= criticalChance
-
-    // 기본 공격 데미지 계산
-    const baseDamage = (player.stats.strength || 0) + (player.stats.attack || 0)
-    const randomMultiplier = 0.8 + Math.random() * 0.4 // 80% ~ 120% 랜덤
-    const finalBaseDamage = Math.floor(baseDamage * randomMultiplier)
-    
-    // 크리티컬 보너스
-    const criticalMultiplier = isCritical ? (player.stats.criticalDamage || 150) / 100 : 1
-    const criticalBonus = isCritical ? Math.floor(finalBaseDamage * (criticalMultiplier - 1)) : 0
-    
-    // 방어력 적용
-    const defenseMitigation = enemy.stats.defense || 0
-    const finalDamage = Math.max(1, Math.floor((finalBaseDamage + criticalBonus) - defenseMitigation))
-    
-    // 적 HP 감소
-    const newEnemyHp = Math.max(0, enemy.stats.hp - finalDamage)
+    // === 적 HP 감소 및 사망 체크 ===
+    const newEnemyHp = Math.max(0, enemy.stats.hp - damage)
     
     set(state => ({
       ...state,
@@ -274,28 +366,31 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       }
     }))
 
-    // 상세 로그 추가
-    const damageDetail = {
-      base: baseDamage,
-      skill: 0,
-      criticalBonus,
-      defenseMitigation,
-      total: finalDamage,
-      isCritical,
-      wasDodged: false,
-      hitChance,
-      hitRoll: Math.round(hitRoll)
+    // === 마나 리젠 (기본공격 시) ===
+    const currentMana = player.stats.mana || 0;
+    const maxMana = player.stats.maxMana || 100;
+    const manaRegen = Math.floor(maxMana * 0.15); // 최대 마나의 15% 회복
+    const newMana = Math.min(maxMana, currentMana + manaRegen);
+    
+    if (manaRegen > 0) {
+      const newPlayerStats = {
+        ...player.stats,
+        mana: newMana
+      };
+      
+      set(state => ({
+        ...state,
+        player: {
+          ...player,
+          stats: newPlayerStats
+        }
+      }));
+      
+      // 게임 스토어와 동기화
+      get().updatePlayerStats(newPlayerStats);
+      
+      get().addLog(`기본공격으로 마나를 ${manaRegen} 회복했습니다! (${currentMana} → ${newMana})`, 'system');
     }
-
-    get().addLog(
-      `${player.name}이(가) 기본 공격으로 ${finalDamage}의 피해를 입혔습니다!`, 
-      isCritical ? 'critical' : 'player-action',
-      {
-        source: player.name,
-        target: enemy.name,
-        damage: damageDetail
-      }
-    )
 
     // 적이 죽었는지 확인
     if (newEnemyHp <= 0) {
@@ -320,7 +415,12 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     const { player, enemy, currentTurn } = get()
     if (!player || !enemy || currentTurn !== player.id) return
 
-
+    // 쿨타임 체크
+    if (get().isSkillOnCooldown(skillId)) {
+      const remainingCooldown = get().getSkillCooldown(skillId);
+      get().addLog(`${skillId} 스킬은 아직 쿨타임입니다! (${remainingCooldown}턴 남음)`, 'system')
+      return
+    }
 
     // 플레이어의 스킬에서 찾기 (이미 장착된 스킬들이 전투 시작시 복사됨)
     const skill = player.skills.find((s: Skill) => s.id === skillId)
@@ -340,8 +440,8 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     const newPlayerMp = player.stats.mp - skill.cost
     
     // 스킬 타입에 따른 처리
-    if (skill.type === 'alchemy' && skill.name === '힐링 포션') {
-      // 힐링 포션: 플레이어 회복
+    if (skill.name === '힐링 포션' || skill.name === '치유' || skill.name.includes('회복') || skill.name.includes('힐')) {
+      // 치유 스킬: 플레이어 회복
       const healAmount = skill.power
       const newPlayerHp = Math.min(player.stats.maxHp, player.stats.hp + healAmount)
       
@@ -356,6 +456,27 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
           }
         }
       }))
+
+      // 게임 스토어의 캐릭터 HP/MP도 동기화
+      const syncGameStore = async () => {
+        try {
+          const { useGameStore } = await import('./gameStore')
+          const gameStore = useGameStore.getState()
+          if (gameStore.character) {
+            gameStore.updateCharacterStats({
+              ...gameStore.character.stats,
+              hp: newPlayerHp,
+              currentHP: newPlayerHp,  // HP 필드명 통일을 위해 추가
+              mp: newPlayerMp,
+              currentMP: newPlayerMp   // MP 필드명 통일을 위해 추가
+            })
+            console.log('[전투] 치유 후 플레이어 HP/MP 동기화:', { hp: newPlayerHp, mp: newPlayerMp })
+          }
+        } catch (error) {
+          console.error('게임 스토어 HP/MP 동기화 오류:', error)
+        }
+      }
+      syncGameStore()
 
       get().addLog(
         `${player.name}이(가) ${skill.name}을(를) 사용하여 ${healAmount}의 체력을 회복했습니다!`,
@@ -377,6 +498,19 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
           }
         }
       )
+      
+      // 치유 스킬의 상태 효과 적용
+      const statusEffectsToApply = skillStatusEffects[skillId] || [];
+      statusEffectsToApply.forEach(effectId => {
+        get().applyStatusEffect('player', effectId);
+      });
+      
+      // 스킬 쿨타임 적용
+      get().applySkillCooldown(skillId);
+      
+      // 턴 넘기기
+      get().nextTurn()
+      return
     } else {
       // 공격 스킬 (파이어볼 등)
       const isPhysicalSkill = skill.type === 'physical'
@@ -388,10 +522,67 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       const randomMultiplier = 0.8 + Math.random() * 0.4
       const randomizedSkillPower = Math.floor(skill.power * randomMultiplier)
       const totalSkillDamage = randomizedSkillPower + basePower
-      const damage = Math.max(1, totalSkillDamage - (enemy.stats.defense || 0))
+      
+      // 5단계 방어 시스템 적용
+      // 1단계: 회피 체크
+      const playerAccuracy = (player.stats.accuracy || 50) + (isPhysicalSkill ? 0 : 10) // 마법 스킬은 명중률 보너스
+      const enemyEvasion = enemy.stats.evasion || 10
+      const skillHitChance = Math.max(10, playerAccuracy - enemyEvasion)
+      const evaded = Math.random() * 100 > skillHitChance
+      
+      let damage = 0
+      let logMessage = `${player.name}이(가) ${skill.name}을(를) 사용했습니다!`
+      
+      if (evaded) {
+        logMessage += ` 하지만 ${enemy.name}이(가) 회피했습니다!`
+      } else {
+        // 2단계: 기본 데미지 계산
+        damage = totalSkillDamage
+        
+        // 3단계: 크리티컬 히트 체크
+        const playerCriticalChance = player.stats.criticalChance || 5
+        const isCritical = Math.random() * 100 < playerCriticalChance
+        if (isCritical) {
+          damage = Math.floor(damage * 1.5)
+          logMessage += ` 크리티컬 히트!`
+        }
+        
+        // 4단계: 방어력 적용
+        damage = Math.max(1, damage - (enemy.stats.defense || 0))
+        
+        // 5단계: 데미지 경감 적용
+        const enemyDamageReduction = enemy.stats.damageReduction || 0
+        if (enemyDamageReduction > 0) {
+          const reducedAmount = Math.floor(damage * enemyDamageReduction / 100)
+          damage = Math.max(1, damage - reducedAmount)
+          logMessage += ` (${enemyDamageReduction}% 데미지 경감 적용)`
+        }
+        
+        logMessage += ` ${damage}의 데미지를 입혔습니다!`
+      }
       
       // 적 HP 감소
       const newEnemyHp = Math.max(0, enemy.stats.hp - damage)
+      
+      // 전투 로그 추가
+      const actualCritical = !evaded && Math.random() * 100 < (player.stats.criticalChance || 5)
+      const skillHitRoll = Math.random() * 100
+      get().addLog(logMessage, 'player-action', {
+        source: player.name,
+        target: enemy.name,
+        damage: {
+          base: randomizedSkillPower,
+          skill: basePower,
+          criticalBonus: actualCritical ? Math.floor(damage * 0.5) : 0,
+          defenseMitigation: Math.max(0, (enemy.stats.defense || 0)),
+          total: evaded ? 0 : damage,
+          isCritical: actualCritical,
+          wasDodged: evaded,
+          hitChance: skillHitChance,
+          hitRoll: Math.round(skillHitRoll),
+          type: isPhysicalSkill ? 'physical' : 'magic'
+        }
+      })
       
       set(state => ({
         ...state,
@@ -430,28 +621,14 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       }
       syncGameStoreMp()
 
-      // 로그 추가
-      get().addLog(
-        `${player.name}이(가) ${skill.name}을(를) 사용하여 ${damage}의 피해를 입혔습니다!`, 
-        'player-action',
-        {
-          source: player.name,
-          target: enemy.name,
-          damage: {
-            base: basePower,
-            skill: randomizedSkillPower,
-            criticalBonus: 0,
-            defenseMitigation: enemy.stats.defense || 0,
-            total: damage,
-            isCritical: false,
-            wasDodged: false,
-            hitChance: 100,
-            hitRoll: 100,
-            type: skill.type === 'magic' ? 'magic' : 'physical'
-          }
-        }
-      )
-
+      // 공격 스킬의 상태 효과 적용 (적에게)
+      if (!evaded) {
+        const statusEffectsToApply = skillStatusEffects[skillId] || [];
+        statusEffectsToApply.forEach(effectId => {
+          get().applyStatusEffect('enemy', effectId);
+        });
+      }
+      
       // 적이 죽었는지 확인
       if (newEnemyHp <= 0) {
         get().addLog(`${enemy.name}을(를) 처치했습니다!`, 'system')
@@ -468,6 +645,9 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       }
     }
 
+    // 스킬 쿨타임 적용
+    get().applySkillCooldown(skillId);
+    
     // 턴 넘기기
     get().nextTurn()
   },
@@ -476,14 +656,57 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     const { player, enemy, currentTurn } = get()
     if (!player || !enemy || currentTurn !== enemy.id) return
 
-    // 적 기본 공격 데미지 계산 (랜덤성 포함)
-    const baseDamage = (enemy.stats.strength || 0) + (enemy.stats.attack || 0)
-    const randomMultiplier = 0.8 + Math.random() * 0.4 // 80% ~ 120% 랜덤
-    const finalBaseDamage = Math.floor(baseDamage * randomMultiplier)
-    const damage = Math.max(1, finalBaseDamage - (player.stats.defense || 0))
+    // === 1단계: 회피 체크 ===
+    const playerEvasion = player.stats.evasion || 0;
+    const enemyAccuracy = enemy.stats.accuracy || 85;
+    
+    // 회피율 계산 (회피력 vs 적 명중률)
+    const hitChance = Math.max(10, enemyAccuracy - playerEvasion); // 최소 10% 명중률 보장
+    const evadeRoll = Math.random() * 100;
+    
+    if (evadeRoll >= hitChance) {
+      // 회피 성공!
+      get().addLog(`${player.name}이(가) 적의 공격을 회피했습니다!`, 'player-action');
+      get().nextTurn();
+      return;
+    }
+
+    // === 2단계: 데미지 계산 ===
+    // 적의 기본 공격력
+    const enemyAttack = (enemy.stats.strength || 0) + (enemy.stats.attack || 0);
+    const randomMultiplier = 0.8 + Math.random() * 0.4; // 80% ~ 120% 랜덤
+    let baseDamage = Math.floor(enemyAttack * randomMultiplier);
+
+    // === 3단계: 크리티컬 체크 ===
+    const enemyCritRate = enemy.stats.criticalRate || 5;
+    const critRoll = Math.random() * 100;
+    let isCritical = false;
+    
+    if (critRoll < enemyCritRate) {
+      isCritical = true;
+      const critMultiplier = (enemy.stats.criticalDamage || 150) / 100;
+      baseDamage = Math.floor(baseDamage * critMultiplier);
+      get().addLog(`${enemy.name}의 치명타 공격!`, 'enemy-action');
+    }
+
+    // === 4단계: 방어력 적용 ===
+    const playerDefense = player.stats.defense || player.stats.physicalDefense || 0;
+    
+    // 방어력은 데미지를 직접 차감하되, 최소 데미지 보장
+    let finalDamage = Math.max(isCritical ? Math.floor(baseDamage * 0.5) : 1, baseDamage - playerDefense);
+
+    // === 5단계: 추가 데미지 경감 ===
+    // DOT 저항력을 일반 데미지 경감으로도 활용
+    const damageReduction = (player.stats.dotResistance || 0) / 100;
+    if (damageReduction > 0) {
+      finalDamage = Math.floor(finalDamage * (1 - Math.min(0.5, damageReduction))); // 최대 50% 경감
+    }
+
+    // 최종 데미지는 최소 1 보장
+    finalDamage = Math.max(1, finalDamage);
     
     // 플레이어 HP 감소
-    const newPlayerHp = Math.max(0, player.stats.hp - damage)
+    const newPlayerHp = Math.max(0, player.stats.hp - finalDamage)
     
     set(state => ({
       ...state,
@@ -515,8 +738,19 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     }
     syncGameStore()
 
-    // 로그 추가
-    get().addLog(`${enemy.name}이(가) 기본 공격으로 ${damage}의 피해를 입혔습니다!`, 'enemy-action')
+    // 로그 추가 (상세한 전투 정보 포함)
+    let logMessage = `${enemy.name}이(가) `;
+    if (isCritical) {
+      logMessage += `치명타로 ${finalDamage}의 피해를 입혔습니다! 💥`;
+    } else {
+      logMessage += `기본 공격으로 ${finalDamage}의 피해를 입혔습니다.`;
+    }
+    
+    if (damageReduction > 0) {
+      logMessage += ` (${Math.floor(damageReduction * 100)}% 경감됨)`;
+    }
+    
+    get().addLog(logMessage, 'enemy-action')
 
     // 플레이어가 죽었는지 확인
     if (newPlayerHp <= 0) {
@@ -607,5 +841,249 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       // 도망 실패 시 턴 넘기기
       get().nextTurn()
     }
+  },
+
+  // === 스킬 쿨타임 관리 함수들 ===
+  
+  initializeSkillCooldowns: (skills: Skill[]) => {
+    const cooldowns: BattleSkillState[] = skills.map(skill => ({
+      skillId: skill.id,
+      currentCooldown: 0  // 전투 시작 시 모든 스킬 사용 가능
+    }));
+    
+    set(state => ({
+      ...state,
+      skillCooldowns: cooldowns
+    }));
+  },
+
+  isSkillOnCooldown: (skillId: string) => {
+    const { skillCooldowns } = get();
+    const skillState = skillCooldowns.find(state => state.skillId === skillId);
+    return skillState ? skillState.currentCooldown > 0 : false;
+  },
+
+  getSkillCooldown: (skillId: string) => {
+    const { skillCooldowns } = get();
+    const skillState = skillCooldowns.find(state => state.skillId === skillId);
+    return skillState ? skillState.currentCooldown : 0;
+  },
+
+  applySkillCooldown: (skillId: string) => {
+    const { player } = get();
+    if (!player) return;
+
+    const skill = player.skills.find(s => s.id === skillId);
+    if (!skill) return;
+
+    const cooldownTurns = skill.cooldown || 0;
+    
+    set(state => ({
+      ...state,
+      skillCooldowns: state.skillCooldowns.map(cooldownState =>
+        cooldownState.skillId === skillId
+          ? { ...cooldownState, currentCooldown: cooldownTurns }
+          : cooldownState
+      )
+    }));
+  },
+
+  reduceAllCooldowns: () => {
+    set(state => ({
+      ...state,
+      skillCooldowns: state.skillCooldowns.map(cooldownState => ({
+        ...cooldownState,
+        currentCooldown: Math.max(0, cooldownState.currentCooldown - 1)
+      }))
+    }));
+  },
+
+  resetAllCooldowns: () => {
+    set(state => ({
+      ...state,
+      skillCooldowns: state.skillCooldowns.map(cooldownState => ({
+        ...cooldownState,
+        currentCooldown: 0
+      }))
+    }));
+  },
+
+  // === 상태 효과 관리 함수들 ===
+  
+  applyStatusEffect: (target: 'player' | 'enemy', effectId: string) => {
+    const effectTemplate = statusEffectsData[effectId];
+    if (!effectTemplate) {
+      console.warn(`상태 효과 ${effectId}를 찾을 수 없습니다`);
+      return;
+    }
+
+    set(state => {
+      const targetCombatant = target === 'player' ? state.player : state.enemy;
+      if (!targetCombatant) return state;
+
+      const existingEffect = targetCombatant.statusEffects.find(e => e.id === effectId);
+      
+      if (existingEffect && effectTemplate.stackable && effectTemplate.maxStacks) {
+        // 중첩 가능한 효과 처리
+        const newStacks = Math.min(
+          (existingEffect.currentStacks || 1) + 1,
+          effectTemplate.maxStacks
+        );
+        
+        const updatedEffect = {
+          ...existingEffect,
+          currentStacks: newStacks,
+          remainingDuration: effectTemplate.duration // 지속시간 갱신
+        };
+        
+        const updatedEffects = targetCombatant.statusEffects.map(e =>
+          e.id === effectId ? updatedEffect : e
+        );
+        
+        return {
+          ...state,
+          [target]: {
+            ...targetCombatant,
+            statusEffects: updatedEffects
+          }
+        };
+      } else if (!existingEffect) {
+        // 새로운 효과 적용
+        const newEffect = {
+          ...effectTemplate,
+          remainingDuration: effectTemplate.duration,
+          currentStacks: 1
+        };
+        
+        return {
+          ...state,
+          [target]: {
+            ...targetCombatant,
+            statusEffects: [...targetCombatant.statusEffects, newEffect]
+          }
+        };
+      }
+      
+      return state;
+    });
+    
+    get().addLog(`${target === 'player' ? '플레이어' : '적'}에게 ${effectTemplate.name} 효과가 적용되었습니다!`, 'status');
+  },
+
+  removeStatusEffect: (target: 'player' | 'enemy', effectId: string) => {
+    set(state => {
+      const targetCombatant = target === 'player' ? state.player : state.enemy;
+      if (!targetCombatant) return state;
+
+      const updatedEffects = targetCombatant.statusEffects.filter(e => e.id !== effectId);
+      
+      return {
+        ...state,
+        [target]: {
+          ...targetCombatant,
+          statusEffects: updatedEffects
+        }
+      };
+    });
+  },
+
+  processStatusEffects: (target: 'player' | 'enemy') => {
+    const { player, enemy, addLog } = get();
+    const targetCombatant = target === 'player' ? player : enemy;
+    
+    if (!targetCombatant) return;
+
+    targetCombatant.statusEffects.forEach(effect => {
+      if (effect.onTick && (effect.type === 'dot' || effect.type === 'hot')) {
+        const tickDamage = effect.onTick(targetCombatant);
+        
+        if (tickDamage > 0) {
+          // 피해 (DOT)
+          set(state => {
+            const currentTarget = target === 'player' ? state.player : state.enemy;
+            if (!currentTarget) return state;
+            
+            const newHp = Math.max(0, currentTarget.stats.hp - tickDamage);
+            return {
+              ...state,
+              [target]: {
+                ...currentTarget,
+                stats: {
+                  ...currentTarget.stats,
+                  hp: newHp
+                }
+              }
+            };
+          });
+          
+          const stackText = effect.currentStacks && effect.currentStacks > 1 
+            ? ` (${effect.currentStacks}중첩)` : '';
+          addLog(
+            `${effect.name}${stackText}로 ${tickDamage} 피해! ${effect.icon}`, 
+            'damage'
+          );
+        } else if (tickDamage < 0) {
+          // 치유 (HOT)
+          const healAmount = Math.abs(tickDamage);
+          set(state => {
+            const currentTarget = target === 'player' ? state.player : state.enemy;
+            if (!currentTarget) return state;
+            
+            const newHp = Math.min(currentTarget.stats.maxHp, currentTarget.stats.hp + healAmount);
+            return {
+              ...state,
+              [target]: {
+                ...currentTarget,
+                stats: {
+                  ...currentTarget.stats,
+                  hp: newHp
+                }
+              }
+            };
+          });
+          
+          const stackText = effect.currentStacks && effect.currentStacks > 1 
+            ? ` (${effect.currentStacks}중첩)` : '';
+          addLog(
+            `${effect.name}${stackText}로 ${healAmount} 회복! ${effect.icon}`, 
+            'heal'
+          );
+        }
+      }
+    });
+  },
+
+  processAllStatusEffects: () => {
+    get().processStatusEffects('player');
+    get().processStatusEffects('enemy');
+  },
+
+  updateStatusEffectDurations: (target: 'player' | 'enemy') => {
+    set(state => {
+      const targetCombatant = target === 'player' ? state.player : state.enemy;
+      if (!targetCombatant) return state;
+
+      const updatedEffects = targetCombatant.statusEffects
+        .map(effect => ({
+          ...effect,
+          remainingDuration: Math.max(0, (effect.remainingDuration || effect.duration) - 1)
+        }))
+        .filter(effect => (effect.remainingDuration || 0) > 0); // 지속시간이 끝난 효과 제거
+
+      return {
+        ...state,
+        [target]: {
+          ...targetCombatant,
+          statusEffects: updatedEffects
+        }
+      };
+    });
+  },
+
+  checkDisablingEffects: (target: 'player' | 'enemy') => {
+    const targetCombatant = target === 'player' ? get().player : get().enemy;
+    if (!targetCombatant) return false;
+
+    return targetCombatant.statusEffects.some(effect => effect.isDisabling);
   }
 }))

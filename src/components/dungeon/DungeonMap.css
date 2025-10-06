@@ -388,6 +388,11 @@
   border-style: dashed;
 }
 
+.room-empty {
+  border-style: dotted;
+  background-color: rgba(128, 128, 128, 0.3);
+}
+
 /* 방 아이콘 */
 .room-icon {
   font-size: 24px;

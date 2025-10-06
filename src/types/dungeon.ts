@@ -71,6 +71,14 @@ export type EventRoom = RoomBase & {
   }
 }
 
+export type EmptyRoom = RoomBase & {
+  type: 'empty'
+  payload: {
+    canRest: boolean
+    description: string
+  }
+}
+
 export type BossRoom = RoomBase & {
   type: 'boss'
   payload: {
@@ -96,7 +104,7 @@ export type ExitRoom = RoomBase & {
 }
 
 // 통합된 방 타입
-export type DungeonRoom = BattleRoom | TreasureRoom | EventRoom | BossRoom | StartRoom | ExitRoom
+export type DungeonRoom = BattleRoom | TreasureRoom | EventRoom | EmptyRoom | BossRoom | StartRoom | ExitRoom
 
 // 던전 레이아웃
 export interface DungeonLayout {

@@ -130,46 +130,81 @@ const Town: React.FC = () => {
           {totalStats && (
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h4 className="text-lg font-semibold mb-3 text-gray-800">상세 능력치</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div className="text-center">
-                  <p className="text-gray-600 font-medium">STR (힘)</p>
-                  <p className="font-bold text-orange-600">{totalStats.strength || character.stats.strength}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-gray-600 font-medium">DEF (방어력)</p>
-                  <p className="font-bold text-blue-600">{totalStats.defense || character.stats.defense}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-gray-600 font-medium">ATK (총 공격력)</p>
-                  <p className="font-bold text-red-600">
-                    {((totalStats.strength || character.stats.strength) + (totalStats.attack || character.stats.attack))}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-gray-600 font-medium">INT (지능)</p>
-                  <p className="font-bold text-purple-600">{totalStats.intelligence || character.stats.intelligence}</p>
+              
+              {/* 기본 3 스탯 */}
+              <div className="mb-4">
+                <h5 className="text-md font-semibold mb-2 text-gray-700">기본 스탯</h5>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="text-center">
+                    <p className="text-gray-600 font-medium">STR (힘)</p>
+                    <p className="font-bold text-orange-600">{totalStats.strength}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-600 font-medium">AGI (민첩)</p>
+                    <p className="font-bold text-yellow-600">{totalStats.agility}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-600 font-medium">INT (지능)</p>
+                    <p className="font-bold text-purple-600">{totalStats.intelligence}</p>
+                  </div>
                 </div>
               </div>
               
-              {/* 추가 전투 스탯 */}
+              {/* 전투 능력치 (파생 스탯) */}
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <h5 className="text-md font-medium mb-2 text-gray-700">전투 능력</h5>
+                <h5 className="text-md font-semibold mb-2 text-gray-700">전투 능력치</h5>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                  <div className="text-center">
+                    <p className="text-gray-500">공격력</p>
+                    <p className="font-semibold text-red-600">{totalStats.attack}</p>
+                    <p className="text-gray-400 text-xs">(힘×2)</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-500">방어력</p>
+                    <p className="font-semibold text-blue-600">{totalStats.defense.toFixed(1)}</p>
+                    <p className="text-gray-400 text-xs">(힘×1.5 + 민×0.5)</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-500">치명타율</p>
+                    <p className="font-semibold text-yellow-600">{totalStats.criticalRate.toFixed(1)}%</p>
+                    <p className="text-gray-400 text-xs">(민×0.5%)</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-500">치명타피해</p>
+                    <p className="font-semibold text-purple-600">{totalStats.criticalDamage.toFixed(0)}%</p>
+                    <p className="text-gray-400 text-xs">(지×2% + 150%)</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-500">회피율</p>
+                    <p className="font-semibold text-cyan-600">{totalStats.evasion.toFixed(1)}%</p>
+                    <p className="text-gray-400 text-xs">(민×1%)</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 속성 저항 */}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <h5 className="text-md font-semibold mb-2 text-gray-700">속성 저항</h5>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                   <div className="text-center">
-                    <p className="text-gray-500">마법공격</p>
-                    <p className="font-semibold text-indigo-600">{totalStats.magicAttack || character.stats.magicAttack}</p>
+                    <p className="text-gray-500">화염 저항</p>
+                    <p className="font-semibold text-red-500">{totalStats.fireResist}</p>
+                    <p className="text-gray-400 text-xs">(지×0.5)</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-500">마법방어</p>
-                    <p className="font-semibold text-green-600">{totalStats.magicDefense || character.stats.magicDefense}</p>
+                    <p className="text-gray-500">냉기 저항</p>
+                    <p className="font-semibold text-blue-500">{totalStats.iceResist}</p>
+                    <p className="text-gray-400 text-xs">(지×0.5)</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-500">민첩성</p>
-                    <p className="font-semibold text-yellow-600">{totalStats.agility || character.stats.agility}</p>
+                    <p className="text-gray-500">번개 저항</p>
+                    <p className="font-semibold text-yellow-500">{totalStats.lightningResist}</p>
+                    <p className="text-gray-400 text-xs">(지×0.5)</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-500">지혜</p>
-                    <p className="font-semibold text-cyan-600">{totalStats.wisdom || character.stats.wisdom}</p>
+                    <p className="text-gray-500">독 저항</p>
+                    <p className="font-semibold text-green-500">{totalStats.poisonResist}</p>
+                    <p className="text-gray-400 text-xs">(지×0.5)</p>
                   </div>
                 </div>
               </div>

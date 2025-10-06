@@ -19,7 +19,9 @@ export const BattleScreen = () => {
     attemptFlee,
     battleResult,
     showBattleResult,
-    closeBattleResult
+    closeBattleResult,
+    isSkillOnCooldown,
+    getSkillCooldown
   } = useBattleStore();
   const equippedSkills = useGameStore((state) => state.equippedSkills);
   const character = useGameStore((state) => state.character);
@@ -116,6 +118,37 @@ export const BattleScreen = () => {
         </div>
       </div>
 
+      {/* 상태 효과 */}
+      {combatant.statusEffects && combatant.statusEffects.length > 0 && (
+        <div className="my-3">
+          <div className="text-xs text-gray-400 mb-1">상태 효과</div>
+          <div className="flex flex-wrap gap-1">
+            {combatant.statusEffects.map((effect, index) => (
+              <div
+                key={`${effect.id}-${index}`}
+                className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                  effect.type === 'buff' ? 'bg-green-700 text-green-100' :
+                  effect.type === 'debuff' ? 'bg-red-700 text-red-100' :
+                  effect.type === 'dot' ? 'bg-orange-700 text-orange-100' :
+                  effect.type === 'hot' ? 'bg-blue-700 text-blue-100' :
+                  'bg-gray-700 text-gray-100'
+                }`}
+                title={`${effect.description} (${effect.remainingDuration || effect.duration}턴 남음)`}
+              >
+                <span className="mr-1">{effect.icon}</span>
+                <span>{effect.name}</span>
+                {effect.currentStacks && effect.currentStacks > 1 && (
+                  <span className="ml-1 font-bold">x{effect.currentStacks}</span>
+                )}
+                <span className="ml-1 text-xs opacity-75">
+                  {effect.remainingDuration || effect.duration}턴
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 기본 스탯 */}
       <div className="grid grid-cols-2 gap-2 text-sm text-gray-300">
         <div>ATK: {(combatant.stats.strength || 0) + (combatant.stats.attack || 0)}</div>
@@ -148,26 +181,61 @@ export const BattleScreen = () => {
           {/* 스킬 목록 */}
           <div className="grid grid-cols-2 gap-2 mb-4">
             {(player?.skills?.length > 0) ? (
-              player.skills.map((skill: Skill) => (
+              player.skills.map((skill: Skill) => {
+                const isOnCooldown = isSkillOnCooldown(skill.id);
+                const cooldownRemaining = getSkillCooldown(skill.id);
+                const isDisabled = currentTurn !== player.id || 
+                                   player.stats.mp < skill.cost || 
+                                   isOnCooldown;
+                
+                return (
                 <button
                   key={skill.id}
-                  className="p-2 bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`p-2 rounded transition-all ${
+                    isDisabled 
+                      ? 'bg-gray-600 opacity-50 cursor-not-allowed' 
+                      : 'bg-gray-700 hover:bg-gray-600'
+                  } ${
+                    isOnCooldown ? 'border border-red-500' : ''
+                  }`}
                   onClick={() => {
-                    if (currentTurn === player.id) {
+                    if (currentTurn === player.id && !isOnCooldown) {
                       useBattleStore.getState().useSkill(skill.id);
                     }
                   }}
-                  disabled={currentTurn !== player.id || player.stats.mp < skill.cost}
+                  disabled={isDisabled}
                 >
-                  <div className="font-bold">{skill.name}</div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">{skill.name}</span>
+                    <span className="text-lg">{skill.icon}</span>
+                  </div>
                   <div className="text-xs text-gray-400">
                     MP {skill.cost} / 위력 {skill.power}
                   </div>
-                  <div className="text-xs text-blue-400">
-                    타입: {skill.type}
+                  <div className="text-xs">
+                    <span className={`${
+                      skill.element === 'fire' ? 'text-red-400' :
+                      skill.element === 'ice' ? 'text-blue-400' :
+                      skill.element === 'lightning' ? 'text-yellow-400' :
+                      skill.element === 'poison' ? 'text-green-400' :
+                      skill.element === 'light' ? 'text-white' :
+                      skill.element === 'dark' ? 'text-purple-400' :
+                      'text-gray-400'
+                    }`}>
+                      {skill.element} {skill.type}
+                    </span>
+                    {skill.cooldown && skill.cooldown > 0 && (
+                      <span className="ml-1 text-gray-500">(쿨타임: {skill.cooldown}턴)</span>
+                    )}
                   </div>
+                  {isOnCooldown && (
+                    <div className="text-xs text-red-400 font-bold">
+                      쿨타임: {cooldownRemaining}턴 남음
+                    </div>
+                  )}
                 </button>
-              ))
+                );
+              })
             ) : (
               <div className="col-span-2 text-center text-gray-500 py-4">
                 장착된 스킬이 없습니다. 스킬 패널에서 스킬을 장착하세요.

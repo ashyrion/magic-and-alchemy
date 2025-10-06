@@ -11,6 +11,7 @@ import { DungeonMap } from './DungeonMap';
 import ExitChoiceModal from './ExitChoiceModal';
 import { TreasureResult } from '../treasure/TreasureResult';
 import { EventResult } from '../event/EventResult';
+import { DUNGEON_TIERS } from '../../data/enemyData';
 import './DungeonMap.css';
 
 interface DungeonExplorerProps {
@@ -46,6 +47,12 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
   const { startBattle } = useBattleStore();
   const { character } = useGameStore();
 
+  // 현재 던전 등급 정보 가져오기
+  const getCurrentDungeonTier = () => {
+    return DUNGEON_TIERS.find(tier => 
+      currentLevel >= tier.minLevel && currentLevel <= tier.maxLevel
+    );
+  };
 
 
   const currentRoom = getCurrentRoom();
@@ -241,28 +248,41 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
             showEventResult: true
           });
         } else if (room.payload.effect === 'buff') {
-          // 버프 이벤트 처리 (예시)
-          addLog(`${room.payload.description || '신비한 제단'}에서 축복을 받았습니다!`);
+          // 버프 이벤트 처리
+          const eventTypeName = room.payload.eventType === 'buff' ? '축복의 제단' : 
+                                room.payload.eventType === 'altar' ? '신비한 제단' : '신성한 장소';
+          
+          addLog(`${eventTypeName}을 발견했습니다! ${room.payload.description}`);
+          addLog(`신비한 힘이 당신을 강화시켜줍니다! (버프 효과: +${room.payload.value})`);
           
           // 이벤트 결과 팝업 표시
           useDungeonStore.setState({
             eventResult: {
               eventType: room.payload.eventType || 'altar',
               effect: room.payload.effect,
-              description: room.payload.description || '신비한 제단에서 축복을 받았습니다.',
+              description: `${eventTypeName}: ${room.payload.description}`,
               value: room.payload.value
             },
             showEventResult: true
           });
         } else {
-          addLog(`${room.payload.description || '특별한 이벤트'}를 발견했습니다!`);
+          // 기타 이벤트 (상점, 퍼즐 등)
+          const eventTypeName = room.payload.eventType === 'shop' ? '미스터리 상점' : 
+                                room.payload.eventType === 'puzzle' ? '수수께곕의 방' : 
+                                room.payload.eventType === 'merchant' ? '떠도는 상인' : '특별한 장소';
+          
+          addLog(`${eventTypeName}을 발견했습니다! ${room.payload.description}`);
+          
+          if (room.payload.value > 0) {
+            addLog(`무언가 좋은 일이 일어났습니다! (효과: +${room.payload.value})`);
+          }
           
           // 이벤트 결과 팝업 표시
           useDungeonStore.setState({
             eventResult: {
               eventType: room.payload.eventType || 'event',
               effect: room.payload.effect || 'unknown',
-              description: room.payload.description || '특별한 이벤트가 발생했습니다.',
+              description: `${eventTypeName}: ${room.payload.description}`,
               value: room.payload.value
             },
             showEventResult: true
@@ -278,6 +298,28 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
         const dungeonStore = useDungeonStore.getState();
         dungeonStore.clearCurrentRoom();
         return;
+      }
+    } else if (room.type === 'empty') {
+      // 빈방 - 연결되어 있지만 아무 이벤트가 없는 방
+      addLog(room.payload?.description || '빈 방입니다. 잠시 휴식을 취할 수 있습니다.');
+      if (room.payload?.canRest && character) {
+        // 약간의 체력 회복 (빈방 다니었더니 난다고 안함)
+        const restHeal = 5; // 소량 회복
+        const maxHp = typeof character.stats.maxHp === 'number' ? character.stats.maxHp : 100;
+        const currentHp = typeof character.stats.hp === 'number' ? character.stats.hp : 0;
+        if (currentHp < maxHp) {
+          const newHp = Math.min(maxHp, currentHp + restHeal);
+          const { setCharacter } = useGameStore.getState();
+          const updatedCharacter = {
+            ...character,
+            stats: {
+              ...character.stats,
+              hp: newHp
+            }
+          };
+          setCharacter(updatedCharacter);
+          addLog(`잠시 휴식을 취하며 체력을 ${restHeal} 회복했습니다. (${currentHp} -> ${newHp})`);
+        }
       }
     } else if (room.type === 'start') {
       // 시작방
@@ -361,6 +403,14 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
                   {currentLevel}층
                 </span>
               )}
+              {initialized && (() => {
+                const tier = getCurrentDungeonTier();
+                return tier && (
+                  <span className="text-xs bg-gray-600 text-white px-2 py-1 rounded">
+                    {tier.name}
+                  </span>
+                );
+              })()}
             </h3>
             {currentRoom ? (
               <div className="text-sm text-gray-600">

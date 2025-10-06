@@ -12,6 +12,7 @@ import { useDungeonStore } from './store/dungeonStore';
 import { useGameStateStore } from './store/gameStateStore';
 import { useAlchemyStore } from './stores/alchemyStore';
 import { testCharacter, testItems, testMaterials, testSkills } from './data/gameData';
+import { generateEnhancedItems, generateEnhancedItem } from './utils/itemGenerator';
 import './App.css';
 
 function App() {
@@ -64,8 +65,21 @@ function App() {
     // 캐릭터 설정
     setCharacter(testCharacter);
 
-    // 아이템 추가
+    // 아이템 추가 (일반 등급)
     testItems.forEach(item => {
+      addItem(item);
+    });
+
+    // 새로운 등급 시스템 아이템들 추가 (시연용)
+    const enhancedItems = [
+      generateEnhancedItem(testItems.find(i => i.type === 'weapon')!, 'magic'),
+      generateEnhancedItem(testItems.find(i => i.type === 'weapon')!, 'rare'),
+      generateEnhancedItem(testItems.find(i => i.type === 'armor')!, 'magic'),
+      generateEnhancedItem(testItems.find(i => i.type === 'armor')!, 'unique'),
+      ...generateEnhancedItems(testItems.filter(i => i.type === 'accessory'), 3)
+    ];
+    
+    enhancedItems.forEach(item => {
       addItem(item);
     });
 

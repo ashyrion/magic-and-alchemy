@@ -22,6 +22,7 @@ export const DungeonRoomNode: React.FC<DungeonRoomNodeProps> = ({
       case 'battle': return '⚔️';
       case 'treasure': return '💰';
       case 'event': return '❓';
+      case 'empty': return '🏛️'; // 빈방 아이콘
       case 'boss': return '👹';
       case 'exit': return '🚩';
       default: return '🔘';
@@ -59,6 +60,7 @@ export const DungeonRoomNode: React.FC<DungeonRoomNodeProps> = ({
            room.type === 'battle' ? '전투' :
            room.type === 'treasure' ? '보물' :
            room.type === 'event' ? '이벤트' :
+           room.type === 'empty' ? '빈방' :
            room.type === 'boss' ? '보스' :
            room.type === 'exit' ? '출구' : '방'}
         </div>

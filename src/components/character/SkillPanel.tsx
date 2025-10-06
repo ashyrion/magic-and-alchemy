@@ -11,41 +11,58 @@ interface SkillSlotProps {
 }
 
 const SkillSlot = ({ skill, index, disabled, onClick }: SkillSlotProps) => {
-  const getSkillTypeIcon = (type?: Skill['type']) => {
+  const getSkillTypeEmoji = (type?: Skill['type']) => {
     switch (type) {
       case 'magic':
-        return 'skill';
+        return '🔮';
       case 'alchemy':
+        return '⚗️';
       case 'physical':
-        return 'accessory';
+        return '⚔️';
       default:
-        return 'empty';
+        return '❓';
     }
   };
 
   return (
     <Slot
-      icon={getSkillTypeIcon(skill?.type)}
+      size="lg"
       isEmpty={!skill}
-      label={`슬롯 ${index + 1}`}
-      className={disabled ? 'opacity-50' : ''}
+      className={`h-full ${disabled ? 'opacity-50' : ''}`}
       onClick={() => !disabled && skill && onClick?.(skill)}
     >
       {skill ? (
-        <div className="text-center w-full" title={skill.name}>
-          <div className="text-sm truncate font-medium">{skill.name}</div>
-          <div className="text-xs text-gray-400">
-            MP {skill.cost} / {skill.power}
-          </div>
-          {/* 효과 정보 표시 */}
-          {skill.effects.length > 0 && (
-            <div className="text-xs text-gray-500 truncate mt-1">
-              {skill.effects.map(effect => effect.name).join(', ')}
+        <div className="flex flex-col h-full p-1 justify-between">
+          {/* 상단: 아이콘과 이름 */}
+          <div className="flex flex-col items-center flex-grow justify-center">
+            <div className="text-xl mb-1">
+              {getSkillTypeEmoji(skill.type)}
             </div>
-          )}
+            <div className="text-xs text-center font-medium leading-tight" title={skill.name}>
+              {skill.name}
+            </div>
+          </div>
+          
+          {/* 하단: 정보 */}
+          <div className="flex flex-col items-center space-y-0.5">
+            <div className="text-xs text-blue-400">
+              MP {skill.cost}
+            </div>
+            <div className={`text-xs px-1.5 py-0.5 rounded text-center w-full ${
+              skill.type === 'magic' ? 'bg-blue-900 text-blue-200' : 
+              skill.type === 'physical' ? 'bg-red-900 text-red-200' : 
+              'bg-purple-900 text-purple-200'
+            }`}>
+              {skill.type === 'magic' ? '마법' : 
+               skill.type === 'physical' ? '물리' : '연금술'}
+            </div>
+          </div>
         </div>
       ) : (
-        <span className="text-gray-500 text-sm">비어있음</span>
+        <div className="flex flex-col h-full items-center justify-center p-2">
+          <div className="text-2xl mb-1 opacity-30">⭕</div>
+          <div className="text-xs text-gray-500 text-center">슬롯 {index + 1}</div>
+        </div>
       )}
     </Slot>
   );
@@ -116,20 +133,16 @@ export const SkillPanel = ({ disabled = false, onSkillsChange }: SkillPanelProps
       <div className="space-y-6">
         {/* 장착된 스킬 슬롯 */}
         <div className="grid grid-cols-2 gap-3" role="group" aria-label="장착된 스킬 목록">
-          {Array.from({ length: MAX_EQUIPPED_SKILLS }).map((_, index) => {
-            const skill = equippedSkills[index] || null;
-            const isCompatible = skill ? isSkillCompatible(skill) : true;
-            
-            return (
+          {Array.from({ length: MAX_EQUIPPED_SKILLS }).map((_, index) => (
+            <div key={index} className="h-20">
               <SkillSlot
-                key={index}
                 index={index}
-                skill={skill}
-                disabled={disabled || !isCompatible}
+                skill={equippedSkills[index] || null}
+                disabled={disabled}
                 onClick={(skill) => skill && handleSkillClick(skill)}
               />
-            );
-          })}
+            </div>
+          ))}
         </div>
         
         {error && (
@@ -148,6 +161,15 @@ export const SkillPanel = ({ disabled = false, onSkillsChange }: SkillPanelProps
                 const isCompatible = isSkillCompatible(skill);
                 const buttonDisabled = disabled || (!isCompatible && !isSelected);
                 
+                const getSkillTypeEmoji = (type: Skill['type']) => {
+                  switch (type) {
+                    case 'magic': return '🔮';
+                    case 'alchemy': return '⚗️';
+                    case 'physical': return '⚔️';
+                    default: return '❓';
+                  }
+                };
+
                 return (
                   <Button
                     key={skill.id}
@@ -155,28 +177,31 @@ export const SkillPanel = ({ disabled = false, onSkillsChange }: SkillPanelProps
                     fullWidth
                     disabled={buttonDisabled}
                     onClick={() => handleSkillClick(skill)}
-                    className={`justify-between transition-colors ${
+                    className={`justify-between transition-colors p-3 ${
                       buttonDisabled ? 'opacity-50' : ''
-                    }`}
+                    } ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
                     title={!isCompatible ? '현재 장착할 수 없는 스킬입니다' : `${skill.effects.map(e => e.name).join(', ')}`}
                   >
                     <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">{skill.name}</span>
-                        {skill.effects.some(effect => effect.duration > 0) && (
-                          <span className="text-xs text-yellow-500">
-                            지속성
-                          </span>
-                        )}
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{getSkillTypeEmoji(skill.type)}</span>
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium text-sm">{skill.name}</span>
+                          {skill.effects.some(effect => effect.duration > 0) && (
+                            <span className="text-xs text-yellow-400 flex items-center">
+                              ⏱️ 지속성
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs">
+                        <span className="text-xs text-blue-400">
                           MP {skill.cost}
                         </span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${
-                          skill.type === 'magic' || skill.type === 'physical' 
-                            ? 'bg-blue-900 text-blue-200' 
-                            : 'bg-purple-900 text-purple-200'
+                        <span className={`text-xs px-2 py-1 rounded font-medium ${
+                          skill.type === 'magic' ? 'bg-blue-900 text-blue-200' : 
+                          skill.type === 'physical' ? 'bg-red-900 text-red-200' : 
+                          'bg-purple-900 text-purple-200'
                         }`}>
                           {skill.type === 'magic' ? '마법' : 
                            skill.type === 'physical' ? '물리' : '연금술'}

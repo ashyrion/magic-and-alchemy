@@ -9,6 +9,7 @@ interface SlotProps {
   isHighlighted?: boolean;
   onClick?: () => void;
   className?: string;
+  size?: 'sm' | 'md' | 'lg'; // 크기 옵션 추가
 }
 
 export const Slot = ({
@@ -18,12 +19,20 @@ export const Slot = ({
   isEmpty = false,
   isHighlighted = false,
   onClick,
-  className = ''
+  className = '',
+  size = 'md'
 }: SlotProps) => {
+  // 크기별 클래스 매핑
+  const sizeClasses = {
+    sm: 'w-14 h-14',
+    md: 'w-16 h-16', 
+    lg: 'w-20 h-20'
+  };
+
   return (
     <div
       className={`
-        relative w-16 h-16 rounded-lg
+        relative ${sizeClasses[size]} rounded-lg
         ${isEmpty ? 'bg-gray-800' : 'bg-gray-700'}
         ${isHighlighted ? 'ring-2 ring-blue-500' : ''}
         ${onClick ? 'cursor-pointer hover:bg-gray-600' : ''}

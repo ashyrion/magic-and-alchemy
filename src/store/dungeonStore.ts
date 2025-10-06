@@ -171,8 +171,8 @@ export const useDungeonStore = create<DungeonStore>()(
         return
       }
 
-      // 클리어된 방에 재입장 시 중복 이벤트 방지
-      if (targetRoom.status === 'cleared') {
+      // 클리어된 방에 재입장 시 중복 이벤트 방지 (출구는 예외)
+      if (targetRoom.status === 'cleared' && targetRoom.type !== 'exit') {
         set({ currentRoomId: roomId });
         get().addLog('이미 클리어한 방입니다.');
         return;
@@ -199,31 +199,121 @@ export const useDungeonStore = create<DungeonStore>()(
       if (targetRoom.type === 'treasure') {
         const inventory = useInventoryStore.getState()
         const { items, gold } = targetRoom.payload
-        let collected = 0
 
         items.forEach((item) => {
-          if (inventory.addItem(item)) {
-            collected += 1
-          }
+          inventory.addItem(item)
         })
         inventory.addGold(gold)
 
+        // 보물 결과 표시
         set({
           rooms: markRoomStatus(get().rooms, roomId, 'cleared'),
+          treasureResult: { gold, items: items.map(item => item.name) },
+          showTreasureResult: true
         })
-        get().addLog(`보물 상자를 열어 골드 ${gold}와 아이템 ${collected}개를 획득했습니다.`)
+        
+        const itemNames = items.map(item => item.name).join(', ')
+        const rareMsg = gold > 150 ? ' [레어 보물!]' : ''
+        get().addLog(`보물 상자를 열어 골드 ${gold}${itemNames ? `와 ${itemNames}` : ''}을 획득했습니다.${rareMsg}`)
         return
       }
 
       if (targetRoom.type === 'event') {
-        if (targetRoom.payload.effect === 'heal') {
-          updateCharacterHp(targetRoom.payload.value)
-          get().addLog(`휴식 이벤트로 HP/MP가 회복되었습니다. (+${targetRoom.payload.value})`)
+        const { effect, value, eventType, description } = targetRoom.payload
+        let eventResultData: EventResult | null = null
+        
+        if (value === 0) {
+          // 빈방 처리
+          eventResultData = {
+            eventType: 'empty',
+            effect: '아무 일도 일어나지 않았습니다.',
+            description: '평범한 빈방이었습니다.'
+          }
+          get().addLog('빈방이었습니다. 잠시 휴식을 취했습니다.')
+        } else if (effect === 'heal') {
+          // 치유 이벤트 (긍정적)
+          updateCharacterHp(value)
+          eventResultData = {
+            eventType,
+            effect: `HP/MP가 ${value} 회복되었습니다!`,
+            description
+          }
+          get().addLog(`${description} HP/MP가 ${value} 회복되었습니다!`)
+        } else if (effect === 'buff') {
+          // 버프 이벤트 (긍정적)
+          const gameStore = useGameStore.getState()
+          if (gameStore.character) {
+            const buffAmount = Math.floor(value / 2)
+            // 임시로 최대 HP 증가 효과 (실제 버프 시스템이 있다면 그것을 사용)
+            gameStore.character.stats.maxHp += buffAmount
+            gameStore.character.stats.hp += buffAmount
+            eventResultData = {
+              eventType,
+              effect: `최대 HP가 ${buffAmount} 증가했습니다!`,
+              description,
+              value: buffAmount
+            }
+            get().addLog(`${description} 최대 HP가 ${buffAmount} 증가했습니다!`)
+          }
+        } else if (effect === 'damage') {
+          // 피해 이벤트 (부정적)
+          const gameStore = useGameStore.getState()
+          if (gameStore.character) {
+            const currentHp = gameStore.character.stats.hp
+            const newHp = Math.max(1, currentHp - value) // 최소 1 HP 유지
+            
+            // 캐릭터 HP 업데이트 (올바른 방법으로)
+            useGameStore.setState((state) => {
+              if (!state.character) return state
+              return {
+                character: {
+                  ...state.character,
+                  stats: {
+                    ...state.character.stats,
+                    hp: newHp
+                  }
+                }
+              }
+            })
+            
+            const actualDamage = currentHp - newHp
+            
+            eventResultData = {
+              eventType,
+              effect: `${actualDamage}의 피해를 받았습니다!`,
+              description,
+              value: actualDamage
+            }
+            get().addLog(`${description} ${actualDamage}의 피해를 받았습니다!`)
+          }
+        } else if (effect === 'reward') {
+          // 보상 이벤트 (골드나 아이템)
+          const inventory = useInventoryStore.getState()
+          if (value > 0) {
+            inventory.addGold(value)
+            eventResultData = {
+              eventType,
+              effect: `${value} 골드를 획득했습니다!`,
+              description,
+              value
+            }
+            get().addLog(`${description} ${value} 골드를 획득했습니다!`)
+          }
         } else {
-          get().addLog('이벤트 방을 탐험했지만 아직 해당 효과는 구현되지 않았습니다.')
+          // 기타 이벤트 - 더 명확한 처리
+          console.log('[던전] 처리되지 않은 이벤트:', { effect, eventType, value, description })
+          eventResultData = {
+            eventType: eventType || 'unknown',
+            effect: effect || '알 수 없는 효과입니다.',
+            description: description || '알 수 없는 이벤트입니다.'
+          }
+          get().addLog(`${description || '이상한 일이 일어났습니다...'}`)
         }
+        
         set({
           rooms: markRoomStatus(get().rooms, roomId, 'cleared'),
+          eventResult: eventResultData,
+          showEventResult: true
         })
         return
       }
@@ -234,10 +324,14 @@ export const useDungeonStore = create<DungeonStore>()(
       }
 
       if (targetRoom.type === 'exit') {
-        get().addLog('던전의 출구에 도달했습니다! 다음 층으로 이동할지 마을로 돌아갈지 선택하세요.')
-        set({
-          rooms: markRoomStatus(get().rooms, roomId, 'cleared'),
-        })
+        if (targetRoom.status !== 'cleared') {
+          get().addLog('던전의 출구에 도달했습니다! 다음 층으로 이동할지 마을로 돌아갈지 선택하세요.')
+          set({
+            rooms: markRoomStatus(get().rooms, roomId, 'cleared'),
+          })
+        } else {
+          get().addLog('출구입니다. 다음 층으로 이동할지 마을로 돌아갈지 선택하세요.')
+        }
         get().showExitChoiceModal()
         return
       }

@@ -1,108 +1,143 @@
-import type { Item } from '../../types/gameTypes';
+import React, { useState } from 'react';
+import type { Item, GeneratedItem, EquipmentSlot as EquipmentSlotType } from '../../types/gameTypes';
 import { useGameStore } from '../../store/gameStore';
-import { useInventoryStore } from '../../store/inventoryStore';
+import { generateUniversalItemTooltip } from '../../utils/tooltipGenerator';
 
 interface EquipmentSlotProps {
-  slot: 'weapon' | 'armor' | 'accessory';
-  label: string;
+  slotType: EquipmentSlotType;
+  item?: Item | GeneratedItem;
 }
 
-export const EquipmentSlot = ({ slot, label }: EquipmentSlotProps) => {
-  const equipment = useGameStore((state) => state.equipment);
-  const character = useGameStore((state) => state.character);
-  const { equipItem, unequipItem } = useGameStore();
-  const items = useInventoryStore((state) => state.items);
-  const { checkEquipRequirements } = useInventoryStore();
+const EquipmentSlot: React.FC<EquipmentSlotProps> = ({ slotType, item }) => {
+  const { unequipItem } = useGameStore();
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState<'bottom' | 'top'>('bottom');
+  const [elementRect, setElementRect] = useState<DOMRect | null>(null);
 
-  const equippedItem = equipment[slot];
-  const currentLevel = character?.level || 1;
-  
-  // 해당 슬롯에 장착 가능한 아이템 필터링
-  const equippableItems = items.filter(item => item.type === slot);
-
-  const handleEquipItem = (item: Item | null) => {
-    if (item === null) {
-      // 해제할 때는 원래 장착된 아이템이 있는지 확인
-      const currentItem = equipment[slot];
-      if (currentItem) {
-        unequipItem(slot);
-      }
-    } else {
-      // 새 아이템 장착
-      equipItem(item, slot);
+  const handleClick = () => {
+    if (item) {
+      unequipItem(slotType);
     }
   };
 
-  return (
-    <div className="bg-gray-700 p-4 rounded-lg">
-      <div className="font-bold mb-2">{label}</div>
-      <div className="relative min-h-[80px] bg-gray-800 rounded p-2">
-        {equippedItem ? (
-          <div 
-            className="flex items-center justify-between cursor-pointer hover:bg-gray-700 p-2 rounded"
-            onClick={() => handleEquipItem(null)} // 장착 해제
-          >
-            <span>{equippedItem.name}</span>
-            {equippedItem.stats && (
-              <span className="text-sm text-gray-400">
-                {equippedItem.stats.attack && `+${equippedItem.stats.attack} 공격`}
-                {equippedItem.stats.defense && `+${equippedItem.stats.defense} 방어`}
-                {equippedItem.stats.magicAttack && `+${equippedItem.stats.magicAttack} 마공`}
-                {equippedItem.stats.intelligence && `+${equippedItem.stats.intelligence} 지능`}
-                {equippedItem.stats.mpRegen && `+${equippedItem.stats.mpRegen} MP회복`}
-                {equippedItem.stats.strength && `+${equippedItem.stats.strength} 근력`}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="text-gray-500 text-center">장착된 아이템 없음</div>
-        )}
-      </div>
+  const isGeneratedItem = (item: Item | GeneratedItem): item is GeneratedItem => {
+    return 'rarity' in item && 'displayName' in item;
+  };
 
-      {/* 장착 가능한 아이템 목록 */}
-      {equippableItems.length > 0 && !equippedItem && (
-        <div className="mt-2 space-y-1">
-          <div className="text-sm text-gray-400 mb-1">장착 가능:</div>
-          {equippableItems.map((item, index) => {
-            const equipCheck = checkEquipRequirements(item, slot);
-            const canEquip = equipCheck.canEquip;
-            const requiredLevel = item.requiredLevel || 1;
-            
-            return (
-              <div
-                key={`${slot}-${item.id}-${index}`}
-                className={`text-sm p-2 rounded flex items-center justify-between ${
-                  canEquip 
-                    ? 'cursor-pointer hover:bg-gray-700' 
-                    : 'cursor-not-allowed opacity-60 border border-red-500'
-                }`}
-                onClick={() => canEquip && handleEquipItem(item)}
-              >
-                <div className="flex flex-col">
-                  <span className={canEquip ? '' : 'text-red-400'}>{item.name}</span>
-                  {requiredLevel > 1 && (
-                    <span className={`text-xs ${
-                      canEquip ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      요구 레벨: {requiredLevel} (현재: {currentLevel})
-                    </span>
-                  )}
-                </div>
-                {item.stats && (
-                  <span className="text-xs text-gray-400">
-                    {item.stats.attack && `+${item.stats.attack} 공격`}
-                    {item.stats.defense && `+${item.stats.defense} 방어`}
-                    {item.stats.magicAttack && `+${item.stats.magicAttack} 마공`}
-                    {item.stats.intelligence && `+${item.stats.intelligence} 지능`}
-                    {item.stats.mpRegen && `+${item.stats.mpRegen} MP회복`}
-                    {item.stats.strength && `+${item.stats.strength} 근력`}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+  const getDisplayName = (item: Item | GeneratedItem): string => {
+    return isGeneratedItem(item) ? item.displayName || item.name : item.name;
+  };
+
+  const getRarityColor = (item: Item | GeneratedItem): string => {
+    if (!isGeneratedItem(item)) return '#ffffff';
+    
+    switch (item.rarity) {
+      case 'magic': return '#3b82f6';
+      case 'rare': return '#eab308';
+      case 'unique': return '#ea580c';
+      default: return '#ffffff';
+    }
+  };
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const element = e.currentTarget as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const scrollY = window.scrollY;
+    
+    // rect 저장
+    setElementRect(rect);
+    
+    // 더 정확한 툴팁 높이 예상 (최대 400px)
+    const tooltipHeight = 400;
+    const spaceBelow = windowHeight - (rect.bottom - scrollY);
+    const spaceAbove = rect.top - scrollY;
+    
+    // 아래쪽 공간이 충분하지 않고 위쪽 공간이 더 크면 위로 표시
+    if (spaceBelow < tooltipHeight && spaceAbove > spaceBelow) {
+      setTooltipPosition('top');
+    } else {
+      setTooltipPosition('bottom');
+    }
+    setShowTooltip(true);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '60px' }}>
+      <div style={{ fontSize: '12px', color: '#888', textTransform: 'capitalize' }}>
+        {slotType}
+      </div>
+      
+      {item ? (
+        <div 
+          onClick={handleClick}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={() => setShowTooltip(false)}
+          style={{ 
+            position: 'relative',
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            padding: '8px', 
+            border: '1px solid #333', 
+            borderRadius: '4px', 
+            backgroundColor: '#2a2a2a', 
+            cursor: 'pointer',
+            color: getRarityColor(item)
+          }}
+        >
+          <span>{item.icon || '📦'}</span>
+          <span style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {getDisplayName(item)}
+          </span>
+          
+          {/* 범용 툴팁 */}
+          {showTooltip && (
+            <div 
+              style={{
+                position: 'fixed',
+                ...(tooltipPosition === 'bottom' && elementRect ? 
+                  { top: `${elementRect.bottom + 4}px` } : 
+                  elementRect ? { bottom: `${window.innerHeight - elementRect.top + 4}px` } : {}
+                ),
+                left: elementRect ? `${Math.min(elementRect.left, window.innerWidth - 340)}px` : '0px',
+                zIndex: 1000,
+                backgroundColor: '#1a1a1a',
+                border: '2px solid #444',
+                borderRadius: '8px',
+                padding: '12px',
+                minWidth: '280px',
+                maxWidth: '320px',
+                fontSize: '12px',
+                lineHeight: '1.4',
+                boxShadow: '0 8px 16px rgba(0,0,0,0.8)',
+                maxHeight: '380px',
+                overflowY: 'auto'
+              }}
+              dangerouslySetInnerHTML={{
+                __html: generateUniversalItemTooltip(item)
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <div 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '40px',
+            border: '2px dashed #444',
+            borderRadius: '4px',
+            color: '#666',
+            fontSize: '12px'
+          }}
+        >
+          Empty
         </div>
       )}
     </div>
   );
 };
+
+export default EquipmentSlot;

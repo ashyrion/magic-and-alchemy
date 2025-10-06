@@ -5,6 +5,7 @@ import type { GameState } from './types';
 import { globalStoreEvents } from './types/events';
 import { useInventoryStore } from './inventoryStore';
 import { calculateEquipmentStats } from '../utils/equipmentUtils';
+import { calculateFinalStats } from '../utils/statCalculations';
 
 // 인벤토리 상태를 동기화하는 함수
 const syncInventoryState = () => {
@@ -157,7 +158,9 @@ export const useGameStore = create<GameStore>()(
       equipItem: (item: Item, slot?: EquipmentSlot) => {
         // 인벤토리 스토어의 상태 업데이트
         const inventoryStore = useInventoryStore.getState();
-        inventoryStore.equipItem(item.id, slot);
+        if (item.instanceId) {
+          inventoryStore.equipItem(item.instanceId, slot);
+        }
 
         // 게임 스토어의 상태도 업데이트
         const inventoryState = useInventoryStore.getState();
@@ -310,35 +313,18 @@ export const useGameStore = create<GameStore>()(
         if (!state.character) return {} as Character['stats'];
 
         const baseStats = state.baseStats ?? state.character.stats;
-        const totalStats = { ...baseStats } as Stats;
         
         // 장비 스탯 계산
         const equipmentStats = calculateEquipmentStats(state.equipment);
         
-        // 기본 스탯에 장비 스탯 추가
-        Object.entries(equipmentStats).forEach(([key, value]) => {
-          if (typeof value !== 'number') return;
-          const statKey = key as keyof Stats;
-          const current = totalStats[statKey];
-          const numericCurrent = typeof current === 'number' ? current : 0;
-          totalStats[statKey] = (numericCurrent + value) as Stats[keyof Stats];
-        });
-
-        // HP 최대값도 장비 보너스를 반영해야 함
-        // hp 보너스가 있으면 maxHp도 그만큼 증가
-        if (equipmentStats.hp && equipmentStats.hp > 0) {
-          totalStats.maxHp = (totalStats.maxHp || 0) + equipmentStats.hp;
-          totalStats.maxHP = totalStats.maxHp; // 필드명 통일
-        }
-
-        // MP 최대값도 장비 보너스를 반영해야 함
-        // mp 보너스가 있으면 maxMp도 그만큼 증가
-        if (equipmentStats.mp && equipmentStats.mp > 0) {
-          totalStats.maxMp = (totalStats.maxMp || 0) + equipmentStats.mp;
-          totalStats.maxMP = totalStats.maxMp; // 필드명 통일
-        }
-
-        return totalStats;
+        // 새로운 스탯 시스템으로 최종 스탯 계산
+        const finalStats = calculateFinalStats(baseStats, equipmentStats);
+        
+        // 현재 HP/MP 유지 (최대값이 변경되어도 현재값은 유지)
+        finalStats.hp = baseStats.hp || finalStats.hp;
+        finalStats.mp = baseStats.mp || finalStats.mp;
+        
+        return finalStats;
       },
     }),
     {
