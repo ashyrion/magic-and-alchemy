@@ -15,10 +15,6 @@ interface NewAlchemyState {
   
   // 인벤토리 - 연금술 재료
   materials: { [materialId: string]: number };
-  // 플레이어 장비 (테스트용 인벤토리)
-  playerEquipment: { [equipmentId: string]: { id: string; name: string; rarity: ItemRarity; [key: string]: unknown } };
-  // 플레이어 스킬 티어
-  skills: { [skillId: string]: number };
   
   // 발견한 레시피들
   knownRecipes: string[];
@@ -60,11 +56,6 @@ interface NewAlchemyActions {
     currentTier: number, 
     useCatalyst?: boolean
   ) => { success: boolean; message: string };
-
-  // 장비/인벤토리 관련
-  addEquipment: (equipmentId: string, item: { id: string; name: string; rarity: ItemRarity; [key: string]: unknown }) => void;
-  getEquipmentList: () => Array<{ id: string; name: string; rarity: ItemRarity; [key: string]: unknown }>;
-  upgradeEquipment: (equipmentId: string, toRarity: ItemRarity, useCatalyst?: boolean) => { success: boolean; message: string };
   
   // 몬스터 처치 시 드롭 처리
   onMonsterKill: (monsterLevel: number, monsterType?: string) => {
@@ -96,13 +87,7 @@ export const useNewAlchemyStore = create<NewAlchemyStore>()(
         'monster-blood': 5,
         'bone-dust': 3
       },
-      playerEquipment: {
-        'test-sword-1': { id: 'test-sword-1', name: '테스트 검', rarity: 'normal' }
-      },
-      skills: {
-        'test-skill-1': 1
-      },
-      knownRecipes: ['small-health-potion', 'small-mana-potion'], // 기본 레시피
+      knownRecipes: ['basic-health-potion', 'basic-mana-potion'], // 기본 레시피
       totalCrafted: 0,
       totalItemsUpgraded: 0,
       totalSkillsUpgraded: 0,
@@ -131,21 +116,6 @@ export const useNewAlchemyStore = create<NewAlchemyStore>()(
             expToNext: expForNext - remainingExp
           };
         });
-      },
-
-      // 장비/인벤토리 관리
-      addEquipment: (equipmentId, item) => {
-        set((state) => ({
-          playerEquipment: {
-            ...state.playerEquipment,
-            [equipmentId]: item
-          }
-        }));
-      },
-
-      getEquipmentList: () => {
-        const state = get();
-        return Object.values(state.playerEquipment || {});
       },
 
       // 재료 관리
@@ -430,87 +400,6 @@ export const useNewAlchemyStore = create<NewAlchemyStore>()(
           }));
           
           return { success: false, message: `${skillId} 스킬 업그레이드에 실패했습니다...` };
-        }
-      },
-
-      // 장비 업그레이드 (playerEquipment 사용)
-      upgradeEquipment: (equipmentId, toRarity, useCatalyst = false) => {
-        const state = get();
-        const equipment = state.playerEquipment && state.playerEquipment[equipmentId];
-        if (!equipment) {
-          return { success: false, message: '해당 장비를 찾을 수 없습니다.' };
-        }
-
-        const fromRarity = equipment.rarity as ItemRarity;
-        const upgradeKey = `${fromRarity}-to-${toRarity.replace('unique', 'unique')}` as keyof typeof upgradeRequirements;
-        const requirements = upgradeRequirements[upgradeKey];
-
-        if (!requirements) {
-          return { success: false, message: '잘못된 업그레이드 경로입니다.' };
-        }
-
-        // 재료 확인
-        for (const material of requirements.materials) {
-          const owned = state.materials[material.id] || 0;
-          if (owned < material.count) {
-            const materialData = alchemyMaterials.find(m => m.id === material.id);
-            return { success: false, message: `${materialData?.name || material.id}이(가) 부족합니다.` };
-          }
-        }
-
-        // 성공률 계산
-        let successRate = requirements.successRate;
-        if (useCatalyst) {
-          const catalystBonus = state.materials['upgrade-catalyst'] ? 10 : 
-                              state.materials['upgrade-catalyst-advanced'] ? 25 : 0;
-          successRate = Math.min(95, successRate + catalystBonus);
-
-          // 촉진제 소모
-          if (state.materials['upgrade-catalyst-advanced'] && state.materials['upgrade-catalyst-advanced'] > 0) {
-            get().removeMaterial('upgrade-catalyst-advanced', 1);
-          } else if (state.materials['upgrade-catalyst'] && state.materials['upgrade-catalyst'] > 0) {
-            get().removeMaterial('upgrade-catalyst', 1);
-          }
-        }
-
-        const isSuccess = Math.random() * 100 < successRate;
-
-        if (isSuccess) {
-          // 재료 소모
-          requirements.materials.forEach(material => {
-            get().removeMaterial(material.id, material.count);
-          });
-
-          // 장비 등급 변경
-          set((prevState) => ({
-            playerEquipment: {
-              ...prevState.playerEquipment,
-              [equipmentId]: {
-                ...prevState.playerEquipment[equipmentId],
-                rarity: toRarity
-              }
-            },
-            totalItemsUpgraded: prevState.totalItemsUpgraded + 1,
-            lastCraftResult: `${equipment.name}을(를) ${toRarity} 등급으로 업그레이드했습니다!`
-          }));
-
-          // 경험치 보상
-          get().gainExperience(requirements.successRate);
-
-          return { success: true, message: `${equipment.name}을(를) ${toRarity} 등급으로 업그레이드했습니다!` };
-        } else {
-          // 실패 시 일부 재료 손실
-          requirements.materials.forEach(material => {
-            const lossAmount = Math.ceil(material.count * 0.3);
-            get().removeMaterial(material.id, lossAmount);
-          });
-
-          set((state) => ({
-            ...state,
-            lastCraftResult: `${equipment.name} 업그레이드에 실패했습니다...`
-          }));
-
-          return { success: false, message: `${equipment.name} 업그레이드에 실패했습니다...` };
         }
       },
 
