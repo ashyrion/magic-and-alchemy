@@ -4,6 +4,8 @@ export interface NewAlchemyRecipe {
   name: string;
   description: string;
   type: 'potion' | 'enhancement' | 'transmutation' | 'special';
+  category?: 'health' | 'mana' | 'enhancement' | 'special'; // 포션 카테고리
+  tier?: number; // 포션 등급 (1=작은, 2=중간, 3=대형)
   rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
   icon: string;
   
@@ -333,14 +335,55 @@ export const getBaseSuccessRate = (recipeId: string): number => {
   return 50; // 기본값
 };
 
+// 포션 카테고리 정의
+export interface PotionCategory {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  recipes: NewAlchemyRecipe[];
+}
+
+// 포션을 카테고리별로 분류하는 함수
+export const getPotionsByCategory = (knownRecipes: string[] = []): PotionCategory[] => {
+  const healthPotions = newAlchemyRecipes.filter(recipe => 
+    recipe.category === 'health' && 
+    (knownRecipes.includes(recipe.id) || recipe.tier === 1)
+  );
+  
+  const manaPotions = newAlchemyRecipes.filter(recipe => 
+    recipe.category === 'mana' && 
+    (knownRecipes.includes(recipe.id) || recipe.tier === 1)
+  );
+
+  return [
+    {
+      id: 'health',
+      name: '체력 물약 제작',
+      description: '체력을 회복하는 다양한 등급의 물약을 제작합니다',
+      icon: '🧪',
+      recipes: healthPotions
+    },
+    {
+      id: 'mana', 
+      name: '마나 물약 제작',
+      description: '마나를 회복하는 다양한 등급의 물약을 제작합니다',
+      icon: '💫',
+      recipes: manaPotions
+    }
+  ];
+};
+
 // 새로운 연금술 시스템 레시피들
 export const newAlchemyRecipes: NewAlchemyRecipe[] = [
-  // 기본 포션 레시피
+  // === 체력 포션 시리즈 ===
   {
-    id: 'basic-health-potion',
-    name: '기본 체력 포션',
-    description: '체력을 50 회복하는 기본적인 포션',
+    id: 'small-health-potion',
+    name: '작은 체력 물약',
+    description: '체력을 30 회복하는 기본적인 포션',
     type: 'potion',
+    category: 'health',
+    tier: 1,
     rarity: 'common',
     icon: '🧪',
     materials: [
@@ -348,7 +391,7 @@ export const newAlchemyRecipes: NewAlchemyRecipe[] = [
       { id: 'monster-blood', count: 1 }
     ],
     results: [
-      { type: 'consumable', id: 'health-potion-small', count: 1 }
+      { type: 'consumable', id: 'potion-health-small', count: 1 }
     ],
     successRate: 95,
     experienceGain: 10,
@@ -360,18 +403,75 @@ export const newAlchemyRecipes: NewAlchemyRecipe[] = [
   },
   
   {
-    id: 'basic-mana-potion',
-    name: '기본 마나 포션',
-    description: '마나를 30 회복하는 기본적인 포션',
+    id: 'medium-health-potion',
+    name: '체력 물약',
+    description: '체력을 80 회복하는 개선된 포션',
     type: 'potion',
-    rarity: 'common',
+    category: 'health',
+    tier: 2,
+    rarity: 'uncommon',
     icon: '🧪',
+    materials: [
+      { id: 'magic-crystal', count: 1 },
+      { id: 'monster-blood', count: 2 },
+      { id: 'essence-fragment', count: 3 }
+    ],
+    results: [
+      { type: 'consumable', id: 'potion-health-medium', count: 1 }
+    ],
+    successRate: 85,
+    experienceGain: 20,
+    goldCost: 120,
+    dropRate: 3,
+    discoveryRequirements: {
+      level: 3,
+      otherRecipes: ['small-health-potion']
+    }
+  },
+  
+  {
+    id: 'large-health-potion',
+    name: '대형 체력 물약',
+    description: '체력을 150 회복하는 강력한 포션',
+    type: 'potion',
+    category: 'health',
+    tier: 3,
+    rarity: 'rare',
+    icon: '🧪',
+    materials: [
+      { id: 'elemental-core', count: 1 },
+      { id: 'magic-crystal', count: 2 },
+      { id: 'monster-blood', count: 4 }
+    ],
+    results: [
+      { type: 'consumable', id: 'potion-health-large', count: 1 }
+    ],
+    successRate: 70,
+    experienceGain: 35,
+    goldCost: 250,
+    dropRate: 1,
+    discoveryRequirements: {
+      level: 7,
+      otherRecipes: ['medium-health-potion']
+    }
+  },
+  
+  // === 마나 포션 시리즈 ===
+  {
+    id: 'small-mana-potion',
+    name: '작은 마나 물약',
+    description: '마나를 25 회복하는 기본적인 포션',
+    type: 'potion',
+    category: 'mana',
+    tier: 1,
+    rarity: 'common',
+    icon: '💫',
     materials: [
       { id: 'essence-fragment', count: 3 },
       { id: 'bone-dust', count: 1 }
     ],
     results: [
-      { type: 'consumable', id: 'mana-potion-small', count: 1 }
+      { type: 'consumable', id: 'potion-mana-small', count: 1 }
     ],
     successRate: 95,
     experienceGain: 10,
@@ -379,6 +479,60 @@ export const newAlchemyRecipes: NewAlchemyRecipe[] = [
     dropRate: 5,
     discoveryRequirements: {
       level: 1
+    }
+  },
+  
+  {
+    id: 'medium-mana-potion',
+    name: '마나 물약',
+    description: '마나를 60 회복하는 개선된 포션',
+    type: 'potion',
+    category: 'mana',
+    tier: 2,
+    rarity: 'uncommon',
+    icon: '💫',
+    materials: [
+      { id: 'magic-crystal', count: 1 },
+      { id: 'bone-dust', count: 2 },
+      { id: 'essence-fragment', count: 4 }
+    ],
+    results: [
+      { type: 'consumable', id: 'potion-mana-medium', count: 1 }
+    ],
+    successRate: 85,
+    experienceGain: 20,
+    goldCost: 120,
+    dropRate: 3,
+    discoveryRequirements: {
+      level: 3,
+      otherRecipes: ['small-mana-potion']
+    }
+  },
+  
+  {
+    id: 'large-mana-potion',
+    name: '대형 마나 물약',
+    description: '마나를 120 회복하는 강력한 포션',
+    type: 'potion',
+    category: 'mana',
+    tier: 3,
+    rarity: 'rare',
+    icon: '💫',
+    materials: [
+      { id: 'elemental-core', count: 1 },
+      { id: 'magic-crystal', count: 2 },
+      { id: 'bone-dust', count: 3 }
+    ],
+    results: [
+      { type: 'consumable', id: 'potion-mana-large', count: 1 }
+    ],
+    successRate: 70,
+    experienceGain: 35,
+    goldCost: 250,
+    dropRate: 1,
+    discoveryRequirements: {
+      level: 7,
+      otherRecipes: ['medium-mana-potion']
     }
   },
 
@@ -396,7 +550,7 @@ export const newAlchemyRecipes: NewAlchemyRecipe[] = [
       { id: 'elemental-core', count: 1 }
     ],
     results: [
-      { type: 'consumable', id: 'health-potion-medium', count: 1 }
+      { type: 'consumable', id: 'potion-health-medium', count: 1 }
     ],
     successRate: 80,
     experienceGain: 25,
