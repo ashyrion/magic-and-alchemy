@@ -389,7 +389,21 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       }));
       
       // 게임 스토어와 동기화
-      get().updatePlayerStats(newPlayerStats);
+      const syncGameStoreMp = async () => {
+        try {
+          const { useGameStore } = await import('./gameStore')
+          const gameStore = useGameStore.getState()
+          if (gameStore.character) {
+            gameStore.updateCharacterStats({
+              ...gameStore.character.stats,
+              mp: newMana,
+            })
+          }
+        } catch (error) {
+          console.error('게임 스토어 MP 동기화 오류:', error)
+        }
+      }
+      syncGameStoreMp()
       
       get().addLog(`기본공격으로 마나를 ${manaRegen} 회복했습니다! (${currentMana} → ${newMana})`, 'system');
     }

@@ -513,40 +513,7 @@ export const useGameStore = create<GameStore>()(
           unlockBaseSkill(skillId);
         });
         
-        // 스킬 강화용 골드와 재료 지급
-        addGold(10000);
-        
-        // 인벤토리 스토어에 스킬 강화 재료 추가
-        const inventoryStore = useInventoryStore.getState();
-        const skillMaterials = [
-          // 화염 재료
-          { id: 'herb-fire-flower', name: '화염꽃', type: 'material', weight: 0.1, icon: '🌺🔥', description: '화염 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          { id: 'crystal-flame-essence', name: '화염 정수 결정', type: 'material', weight: 0.2, icon: '💎🔥', description: '고급 화염 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          // 냉기 재료
-          { id: 'herb-frost-leaf', name: '서리잎', type: 'material', weight: 0.1, icon: '🍃❄️', description: '냉기 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          { id: 'crystal-ice-essence', name: '얼음 정수 결정', type: 'material', weight: 0.2, icon: '💎❄️', description: '고급 냉기 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          // 번개 재료
-          { id: 'herb-thunder-grass', name: '천둥풀', type: 'material', weight: 0.1, icon: '🌿⚡', description: '번개 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          { id: 'crystal-lightning-essence', name: '번개 정수 결정', type: 'material', weight: 0.2, icon: '💎⚡', description: '고급 번개 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          // 독 재료
-          { id: 'herb-toxic-mushroom', name: '맹독버섯', type: 'material', weight: 0.1, icon: '🍄☠️', description: '독 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          { id: 'crystal-poison-essence', name: '독 정수 결정', type: 'material', weight: 0.2, icon: '💎☠️', description: '고급 독 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          // 빛 재료
-          { id: 'herb-moonlight-petal', name: '달빛 꽃잎', type: 'material', weight: 0.1, icon: '🌸🌙', description: '빛 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          { id: 'crystal-light-essence', name: '빛 정수 결정', type: 'material', weight: 0.2, icon: '💎✨', description: '고급 빛 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          // 어둠 재료
-          { id: 'herb-shadow-root', name: '그림자뿌리', type: 'material', weight: 0.1, icon: '🌑🌿', description: '어둠 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
-          { id: 'crystal-dark-essence', name: '어둠 정수 결정', type: 'material', weight: 0.2, icon: '💎🌑', description: '고급 어둠 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] }
-        ];
-        
-        // 각 재료를 10개씩 추가
-        skillMaterials.forEach(material => {
-          for (let i = 0; i < 10; i++) {
-            inventoryStore.addItem(material as Item);
-          }
-        });
-        
-        console.log('✅ 기본 스킬과 강화 재료가 지급되었습니다!', { gold: 10000, materials: skillMaterials.length });
+
       },
       
       // 개발용: 모든 스킬과 진행도 초기화
