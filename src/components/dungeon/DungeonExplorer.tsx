@@ -2,10 +2,15 @@ import React from 'react';
 import { useDungeonStore } from '../../store/dungeonStore';
 import { useBattleStore } from '../../store/battleStore';
 import { useGameStore } from '../../store/gameStore';
+import { useInventoryStore } from '../../store/inventoryStore';
+import { useGameStateStore } from '../../store/gameStateStore';
 import { DUNGEON_TEMPLATES } from '../../data/dungeonData';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { DungeonMap } from './DungeonMap';
+import ExitChoiceModal from './ExitChoiceModal';
+import { TreasureResult } from '../treasure/TreasureResult';
+import { EventResult } from '../event/EventResult';
 import './DungeonMap.css';
 
 interface DungeonExplorerProps {
@@ -20,6 +25,14 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
     rooms,
     log,
     canExitDungeon,
+    currentLevel,
+    maxReachedLevel,
+    treasureResult,
+    showTreasureResult,
+    closeTreasureResult,
+    eventResult,
+    showEventResult,
+    closeEventResult,
     initializeDungeonFromTemplate,
     getCurrentRoom,
     getAvailableExits,
@@ -57,13 +70,16 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
       return;
     }
 
+    // 보물방 처리는 이동 후에 별도로 처리
+
     // 접근성 체크: 현재 방에서 직접 연결된 방인지 확인
     const currentRoom = rooms.find(r => r.id === currentRoomId);
     if (currentRoom && currentRoom.id !== roomId) {
       const isConnected = currentRoom.connections && 
         currentRoom.connections.includes(`${room.position?.x}-${room.position?.y}`);
       
-      if (!isConnected && room.type !== 'start' && room.status !== 'cleared') {
+      // cleared 상태의 방은 항상 접근 가능하도록 수정
+      if (!isConnected && room.type !== 'start' && room.status !== 'cleared' && room.status !== 'visible') {
         console.log('접근 불가능한 방:', roomId);
         addLog('그 방으로 직접 갈 수 없습니다. 연결된 경로를 따라 이동하세요.');
         return;
@@ -72,9 +88,17 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
 
 
 
-    // 전투방인 경우 HP 체크
+    // 전투방인 경우 HP 체크 - 모든 가능한 HP 필드명 확인
     if ((room.type === 'battle' || room.type === 'boss') && character) {
-      const currentHp = typeof character.stats.hp === 'number' ? character.stats.hp : 0;
+      // HP 필드명이 일관되지 않아서 모든 경우를 확인
+      const currentHp = character.stats.currentHP ?? character.stats.hp ?? 0;
+      
+      console.log('[DungeonExplorer] HP 체크:', {
+        currentHP: character.stats.currentHP,
+        hp: character.stats.hp,
+        selectedHP: currentHp
+      });
+      
       if (currentHp <= 0) {
         addLog('HP가 부족해서 전투를 할 수 없습니다. 회복이 필요합니다.');
         return;
@@ -83,14 +107,23 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
 
     console.log('방 타입:', room.type, '방 정보:', room);
 
-    // 방으로 이동
+    // 방으로 이동 (항상 먼저 실행)
     enterRoom(roomId);
     
     // 방 타입에 따른 처리
     if (room.type === 'battle' && room.payload && 'enemy' in room.payload) {
-      if (room.status === 'cleared') {
-        // 이미 클리어된 전투방은 전투하지 않음
+      // 방 상태로 먼저 체크 - cleared 상태면 전투하지 않음
+      console.log('전투방 상태 체크:', room.status, room.id);
+      
+      // 타입 안전하게 체크
+      const isRoomCleared = room.status === 'cleared' || room.status === 'in-progress';
+      // 적 HP 체크
+      const isEnemyDefeated = room.payload.enemy.stats?.hp !== undefined && room.payload.enemy.stats.hp <= 0;
+      
+      if (isRoomCleared || isEnemyDefeated) {
+        console.log('이미 클리어된 전투방 - 상태:', room.status, 'HP:', room.payload.enemy.stats?.hp);
         addLog(`이미 처치한 적이 있던 곳입니다. 평화롭습니다.`);
+        return; // 중복 전투 방지
       } else if (character) {
         console.log('전투 시작:', character, room.payload.enemy);
         addLog(`${room.payload.enemy.name}과(와) 조우했습니다!`);
@@ -99,35 +132,85 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
         console.log('캐릭터가 없어서 전투 시작 불가');
       }
     } else if (room.type === 'boss' && room.payload && 'boss' in room.payload) {
-      if (room.status === 'cleared') {
+      // 보스방에서 이미 보스가 처치된 경우 체크
+      const isBossDefeated = room.payload.boss.stats?.hp !== undefined && room.payload.boss.stats.hp <= 0;
+      
+      if (isBossDefeated) {
         // 이미 클리어된 보스방은 전투하지 않음
         addLog(`이미 처치한 보스가 있던 곳입니다. 평화롭습니다.`);
+        return; // 중복 전투 방지
       } else if (character) {
         addLog(`보스 ${room.payload.boss.name}이(가) 나타났습니다!`);
         startBattle(character, room.payload.boss);
       }
     } else if (room.type === 'treasure') {
-      if (room.status === 'cleared') {
-        // 이미 열린 보물 상자
+      // 이미 열린 보물방인 경우
+      if (room.payload?.isOpened) {
+        console.log('이미 클리어된 보물방 - 이동만 허용:', roomId);
         addLog('이미 열어본 보물 상자입니다. 비어있습니다.');
-      } else if (room.payload && !room.payload.isOpened && character) {
+        return; // 보물만 다시 주지 않고 이동은 이미 완료됨
+      }
+      
+      // 새로운 보물방 처리
+      if (room.payload && !room.payload.isOpened && character) {
         // 새로운 보물 발견 및 획득
         const { addGold } = useGameStore.getState();
-        addGold(room.payload.gold);
-        addLog(`보물 상자를 발견했습니다! 금화 ${room.payload.gold}개를 획득했습니다.`);
+        const { addItem } = useInventoryStore.getState();
+        const dungeonStore = useDungeonStore.getState();
         
-        // 보물 상자를 열린 상태로 변경하고 방 클리어
-        setTimeout(() => {
-          const { clearCurrentRoom } = useDungeonStore.getState();
-          clearCurrentRoom();
-        }, 1000);
+        // 보물 상자 열기 상태 변경
+        room.payload.isOpened = true;
+        
+        // 골드 추가
+        addGold(room.payload.gold);
+        
+        // 아이템 추가 및 이름 수집
+        const itemNames: string[] = [];
+        if (room.payload.items && room.payload.items.length > 0) {
+          room.payload.items.forEach(item => {
+            if (addItem(item)) {
+              itemNames.push(item.name);
+            }
+          });
+        }
+        
+        // 로그 메시지 생성
+        let logMessage = `보물 상자를 발견했습니다! 금화 ${room.payload.gold}개를 획득했습니다.`;
+        if (itemNames.length > 0) {
+          logMessage += ` 아이템: ${itemNames.join(', ')}`;
+        }
+        addLog(logMessage);
+        
+        // 보물 결과 화면 표시
+        useDungeonStore.setState({
+          treasureResult: {
+            gold: room.payload.gold,
+            items: itemNames
+          },
+          showTreasureResult: true
+        });
+        
+        // 즉시 방을 클리어하여 중복 클릭 방지
+        dungeonStore.clearCurrentRoom();
+        return; // 중복 처리 방지
       }
     } else if (room.type === 'event') {
+      // 이벤트 방에서 이미 완료된 경우 이벤트는 실행하지 않음
+      if (room.payload?.isCompleted) {
+        console.log('이미 완료된 이벤트방 - 이벤트 스킵:', roomId);
+        addLog('이미 경험한 이벤트 장소입니다. 평화롭습니다.');
+        return; // 이벤트만 실행하지 않고 방 이동은 이미 완료됨
+      }
+      
       // 이벤트 처리
-      if (room.status === 'cleared') {
-        addLog('이미 경험한 이벤트입니다.');
-      } else if (room.payload && !room.payload.isCompleted && character) {
+      if (room.payload && !room.payload.isCompleted && character) {
         const { setCharacter } = useGameStore.getState();
+        const dungeonStore = useDungeonStore.getState();
+        
+        console.log('이벤트 처리 시작:', room.payload);
+        
+        // 이벤트를 완료로 표시 (먼저 처리)
+        room.payload.isCompleted = true;
         
         // 치유 이벤트 처리
         if (room.payload.effect === 'heal' && room.payload.value) {
@@ -145,24 +228,62 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
           };
           
           setCharacter(updatedCharacter);
-          addLog(`${room.payload.description}에서 HP를 ${healAmount} 회복했습니다! (${currentHp} -> ${newHp})`);
+          addLog(`${room.payload.description || '칙유의 샘'}에서 HP를 ${healAmount} 회복했습니다! (${currentHp} -> ${newHp})`);
           
-          // 이벤트 완료 및 방 클리어
-          setTimeout(() => {
-            const { clearCurrentRoom } = useDungeonStore.getState();
-            clearCurrentRoom();
-          }, 1000);
+          // 이벤트 결과 팝업 표시
+          useDungeonStore.setState({
+            eventResult: {
+              eventType: room.payload.eventType || 'rest',
+              effect: room.payload.effect,
+              description: room.payload.description || '칙유의 샘에서 체력을 회복했습니다.',
+              value: healAmount
+            },
+            showEventResult: true
+          });
+        } else if (room.payload.effect === 'buff') {
+          // 버프 이벤트 처리 (예시)
+          addLog(`${room.payload.description || '신비한 제단'}에서 축복을 받았습니다!`);
+          
+          // 이벤트 결과 팝업 표시
+          useDungeonStore.setState({
+            eventResult: {
+              eventType: room.payload.eventType || 'altar',
+              effect: room.payload.effect,
+              description: room.payload.description || '신비한 제단에서 축복을 받았습니다.',
+              value: room.payload.value
+            },
+            showEventResult: true
+          });
         } else {
-          addLog(`특별한 이벤트를 발견했습니다!`);
+          addLog(`${room.payload.description || '특별한 이벤트'}를 발견했습니다!`);
+          
+          // 이벤트 결과 팝업 표시
+          useDungeonStore.setState({
+            eventResult: {
+              eventType: room.payload.eventType || 'event',
+              effect: room.payload.effect || 'unknown',
+              description: room.payload.description || '특별한 이벤트가 발생했습니다.',
+              value: room.payload.value
+            },
+            showEventResult: true
+          });
         }
+        
+        // 이벤트 완료 후 방 클리어
+        dungeonStore.clearCurrentRoom();
+        return; // 중복 처리 방지
       } else {
-        addLog(`특별한 이벤트를 발견했습니다!`);
+        // 이벤트가 없거나 캐릭터가 없는 경우
+        addLog(`특별한 이벤트를 발견했지만 상호작용할 수 없습니다.`);
+        const dungeonStore = useDungeonStore.getState();
+        dungeonStore.clearCurrentRoom();
+        return;
       }
     } else if (room.type === 'start') {
       // 시작방
       addLog(room.payload?.welcomeMessage || '던전의 입구입니다.');
     } else if (room.type === 'exit') {
-      // 출구방
+      // 출구방 - 방문 후 상태 변경
       if (room.payload?.isUnlocked) {
         addLog('던전의 출구입니다. 여기서 던전을 나갈 수 있습니다.');
       } else {
@@ -182,6 +303,13 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
   const handleExitDungeon = () => {
     exitDungeon();
     addLog('던전을 떠났습니다.');
+  };
+
+  // 마을로 돌아가기
+  const handleReturnToTown = () => {
+    const gameStateStore = useGameStateStore.getState();
+    gameStateStore.goToTown();
+    addLog('마을로 돌아갑니다.');
   };
 
   if (!initialized) {
@@ -226,16 +354,31 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
       <Card title="던전 탐험">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="text-lg font-bold">
+            <h3 className="text-lg font-bold flex items-center gap-2">
               {isInDungeon ? '던전 탐험 중' : '던전 준비 완료'}
+              {initialized && (
+                <span className="text-sm bg-purple-600 text-white px-2 py-1 rounded">
+                  {currentLevel}층
+                </span>
+              )}
             </h3>
             {currentRoom ? (
-              <p className="text-sm text-gray-600">
-                현재 위치: {currentRoom.type} 방 ({currentRoom.id})
-              </p>
+              <div className="text-sm text-gray-600">
+                <div>현재 위치: {currentRoom.type} 방</div>
+                {maxReachedLevel > 1 && (
+                  <div className="text-xs text-purple-600">
+                    최고 도달층: {maxReachedLevel}층
+                  </div>
+                )}
+              </div>
             ) : (
               <p className="text-sm text-gray-600">
                 상태: {initialized ? '던전 준비됨' : '던전 미초기화'} | 방 개수: {rooms.length}
+                {maxReachedLevel > 1 && (
+                  <span className="ml-2 text-purple-600">
+                    | 최고 도달층: {maxReachedLevel}층
+                  </span>
+                )}
               </p>
             )}
           </div>
@@ -258,6 +401,12 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
                 던전 나가기
               </Button>
             )}
+            <Button 
+              variant="secondary"
+              onClick={handleReturnToTown}
+            >
+              🏘️ 마을로
+            </Button>
           </div>
         </div>
 
@@ -357,6 +506,29 @@ export const DungeonExplorer: React.FC<DungeonExplorerProps> = ({ className }) =
           )}
         </div>
       </Card>
+
+      {/* 보물 결과 화면 */}
+      {showTreasureResult && treasureResult && (
+        <TreasureResult
+          gold={treasureResult.gold}
+          items={treasureResult.items}
+          onClose={closeTreasureResult}
+        />
+      )}
+      
+      {/* 이벤트 결과 화면 */}
+      {showEventResult && eventResult && (
+        <EventResult
+          eventType={eventResult.eventType}
+          effect={eventResult.effect}
+          description={eventResult.description}
+          value={eventResult.value}
+          onClose={closeEventResult}
+        />
+      )}
+
+      {/* 출구 선택지 모달 */}
+      <ExitChoiceModal />
     </div>
   );
 };

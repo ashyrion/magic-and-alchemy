@@ -126,9 +126,26 @@ export function calculateFinalStats(
     });
   });
 
-  // HP/MP 최대값 제한
-  final.hp = Math.min(final.hp, final.maxHp);
-  final.mp = Math.min(final.mp, final.maxMp);
+  // HP/MP 최대값 제한 및 유효성 검사
+  final.hp = Math.min(Math.max(0, final.hp), Math.max(1, final.maxHp));
+  final.mp = Math.min(Math.max(0, final.mp), Math.max(0, final.maxMp));
+  
+  // 추가 안전 검사: maxMp가 0 이하이면 mp도 0으로 설정
+  if (final.maxMp <= 0) {
+    final.mp = 0;
+    final.maxMp = Math.max(0, final.maxMp);
+  }
+  
+  // 디버그: MP 초과 상황 감지
+  if (final.mp > final.maxMp) {
+    console.warn('[statCalculator] MP 초과 감지:', {
+      mp: final.mp,
+      maxMp: final.maxMp,
+      character: character.name,
+      equipment: Object.entries(equipment).map(([slot, item]) => ({ slot, item: item?.name }))
+    });
+    final.mp = final.maxMp; // 강제로 제한
+  }
 
   return {
     base: { ...character.stats },

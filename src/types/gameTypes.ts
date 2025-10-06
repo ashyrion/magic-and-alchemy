@@ -61,6 +61,8 @@ export interface Character extends BaseCharacter {
   type: 'normal';
   category: 'humanoid';
   isEnemy: false;
+  experience: number;
+  experienceToNext: number;
 }
 
 export interface Enemy extends BaseCharacter {
@@ -85,6 +87,7 @@ export interface Skill {
   power: number;
   cost: number;
   effects: StatusEffect[];
+  description?: string;
 }
 
 export interface Item {

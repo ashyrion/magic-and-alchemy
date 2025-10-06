@@ -29,6 +29,7 @@ interface GameStore extends GameState {
   unequipItem: (slot: EquipmentSlot) => void;
   getEquippedItems: () => Item[];
   updateCharacterStats: (overrideStats?: Partial<Stats>) => void;
+  healCharacter: (hpAmount: number, mpAmount: number) => void;
   calculateTotalStats: () => Character['stats'];
 }
 
@@ -103,59 +104,45 @@ export const useGameStore = create<GameStore>()(
         })),
 
       addExperience: (experience: number) => {
-        let leveledUp = false;
-
         set((state) => {
           if (!state.character) return state;
 
-          const baseStats = state.baseStats ?? state.character.stats;
-          const currentLevel = state.character.level;
-          const requiredExp = currentLevel * 100;
-          const totalExp = experience;
+          const newExp = state.character.experience + experience;
+          let remainingExp = newExp;
+          let currentLevel = state.character.level;
+          let expToNext = state.character.experienceToNext;
+          let updatedStats = { ...state.character.stats };
 
-          if (totalExp < requiredExp) {
-            return state;
+          // 레벨업 체크
+          while (remainingExp >= expToNext) {
+            remainingExp -= expToNext;
+            currentLevel++;
+            expToNext = currentLevel * 100; // 다음 레벨까지 필요한 경험치
+            
+            // 레벨업 시 스탯 증가
+            updatedStats.maxHp = (updatedStats.maxHp || 100) + 10;
+            updatedStats.maxMp = (updatedStats.maxMp || 50) + 5;
+            updatedStats.hp = updatedStats.maxHp; // 레벨업 시 완전 회복
+            updatedStats.mp = updatedStats.maxMp; // 레벨업 시 완전 회복
+            updatedStats.strength = (updatedStats.strength || 0) + 1;
+            updatedStats.intelligence = (updatedStats.intelligence || 0) + 1;
+            updatedStats.agility = (updatedStats.agility || 0) + 1;
+            updatedStats.defense = (updatedStats.defense || 0) + 1;
+            updatedStats.attack = (updatedStats.attack || 0) + 1;
+            updatedStats.magicAttack = (updatedStats.magicAttack || 0) + 2;
           }
-
-          const newLevel = currentLevel + 1;
-          const statIncrease = {
-            maxHp: 10,
-            maxMp: 5,
-            strength: 1,
-            defense: 1,
-            agility: currentLevel % 2 === 0 ? 1 : 0,
-            intelligence: currentLevel % 2 === 0 ? 1 : 0,
-          };
-
-          const updatedBaseStats: Stats = { ...baseStats };
-          Object.entries(statIncrease).forEach(([key, value]) => {
-            const statKey = key as keyof Stats;
-            const currentValue = typeof updatedBaseStats[statKey] === 'number' ? updatedBaseStats[statKey] as number : 0;
-            updatedBaseStats[statKey] = (currentValue + value) as Stats[keyof Stats];
-          });
-
-          if (typeof updatedBaseStats.maxHp === 'number') {
-            updatedBaseStats.hp = updatedBaseStats.maxHp as Stats[keyof Stats];
-          }
-          if (typeof updatedBaseStats.maxMp === 'number') {
-            updatedBaseStats.mp = updatedBaseStats.maxMp as Stats[keyof Stats];
-          }
-
-          leveledUp = true;
 
           return {
+            ...state,
             character: {
               ...state.character,
-              level: newLevel,
-              stats: updatedBaseStats,
-            },
-            baseStats: updatedBaseStats,
+              experience: remainingExp,
+              experienceToNext: expToNext,
+              level: currentLevel,
+              stats: updatedStats
+            }
           };
         });
-
-        if (leveledUp) {
-          get().updateCharacterStats();
-        }
       },
 
       incrementTime: () => 
@@ -167,10 +154,10 @@ export const useGameStore = create<GameStore>()(
           savePoints: [...state.savePoints, savePoint]
         })),
         
-      equipItem: (item: Item) => {
+      equipItem: (item: Item, slot?: EquipmentSlot) => {
         // 인벤토리 스토어의 상태 업데이트
         const inventoryStore = useInventoryStore.getState();
-        inventoryStore.equipItem(item.id);
+        inventoryStore.equipItem(item.id, slot);
 
         // 게임 스토어의 상태도 업데이트
         const inventoryState = useInventoryStore.getState();
@@ -227,10 +214,33 @@ export const useGameStore = create<GameStore>()(
         set((state) => {
           if (!state.character) return state;
 
+          // 현재 HP/MP 보존
+          const currentHp = state.character.stats.currentHP;
+          const currentMp = state.character.stats.currentMP;
+
           const totalStats = get().calculateTotalStats();
+          
+          // 현재 HP/MP를 유지 (최대값을 넘지 않도록 제한)
+          const maxHP = totalStats.maxHP || totalStats.maxHp || 100;
+          const maxMP = totalStats.maxMP || totalStats.maxMp || 50;
+          
+          const preservedStats = {
+            ...totalStats,
+            // HP 계산
+            hp: typeof currentHp === 'number' ? Math.min(currentHp, maxHP) : maxHP,
+            currentHP: typeof currentHp === 'number' ? Math.min(currentHp, maxHP) : maxHP,
+            maxHP: maxHP,
+            maxHp: maxHP,
+            // MP 계산 - 현재 MP는 기본값을 유지, 최대 MP는 장비 보너스 포함
+            mp: typeof currentMp === 'number' ? Math.min(currentMp, maxMP) : (state.character.stats.mp || 80),
+            currentMP: typeof currentMp === 'number' ? Math.min(currentMp, maxMP) : (state.character.stats.mp || 80),
+            maxMP: maxMP,
+            maxMp: maxMP
+          };
+
           const mergedStats = overrideStats
-            ? { ...totalStats, ...overrideStats }
-            : totalStats;
+            ? { ...preservedStats, ...overrideStats }
+            : preservedStats;
 
           const updatedCharacter = {
             ...state.character,
@@ -266,6 +276,35 @@ export const useGameStore = create<GameStore>()(
         }
       },
 
+      healCharacter: (hpAmount: number, mpAmount: number) => {
+        set((state) => {
+          if (!state.character) return state;
+          
+          const newHP = Math.min(
+            state.character.stats.currentHP + hpAmount,
+            state.character.stats.maxHP
+          );
+          const newMP = Math.min(
+            state.character.stats.currentMP + mpAmount,
+            state.character.stats.maxMP
+          );
+
+          const updatedCharacter = {
+            ...state.character,
+            stats: {
+              ...state.character.stats,
+              currentHP: newHP,
+              currentMP: newMP
+            }
+          };
+
+          return {
+            ...state,
+            character: updatedCharacter
+          };
+        });
+      },
+
       calculateTotalStats: () => {
         const state = get();
         if (!state.character) return {} as Character['stats'];
@@ -285,14 +324,18 @@ export const useGameStore = create<GameStore>()(
           totalStats[statKey] = (numericCurrent + value) as Stats[keyof Stats];
         });
 
-        // HP/MP 최대값 제한
-        if (typeof totalStats.maxHp === 'number') {
-          const hp = typeof totalStats.hp === 'number' ? totalStats.hp : totalStats.maxHp;
-          totalStats.hp = Math.min(hp, totalStats.maxHp) as Stats[keyof Stats];
+        // HP 최대값도 장비 보너스를 반영해야 함
+        // hp 보너스가 있으면 maxHp도 그만큼 증가
+        if (equipmentStats.hp && equipmentStats.hp > 0) {
+          totalStats.maxHp = (totalStats.maxHp || 0) + equipmentStats.hp;
+          totalStats.maxHP = totalStats.maxHp; // 필드명 통일
         }
-        if (typeof totalStats.maxMp === 'number') {
-          const mp = typeof totalStats.mp === 'number' ? totalStats.mp : totalStats.maxMp;
-          totalStats.mp = Math.min(mp, totalStats.maxMp) as Stats[keyof Stats];
+
+        // MP 최대값도 장비 보너스를 반영해야 함
+        // mp 보너스가 있으면 maxMp도 그만큼 증가
+        if (equipmentStats.mp && equipmentStats.mp > 0) {
+          totalStats.maxMp = (totalStats.maxMp || 0) + equipmentStats.mp;
+          totalStats.maxMP = totalStats.maxMp; // 필드명 통일
         }
 
         return totalStats;

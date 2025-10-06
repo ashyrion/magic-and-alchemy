@@ -4,6 +4,7 @@ export const CharacterStatus = () => {
   const character = useGameStore((state) => state.character);
   const baseStats = useGameStore((state) => state.baseStats);
   const gold = useGameStore((state) => state.gold);
+  const calculateTotalStats = useGameStore((state) => state.calculateTotalStats);
 
   if (!character) {
     return (
@@ -13,7 +14,8 @@ export const CharacterStatus = () => {
     );
   }
 
-  // 게임 스토어에서 이미 계산된 스탯을 사용
+  // 장비 보너스를 포함한 총 스탯 계산
+  const totalStats = calculateTotalStats();
   const computedStats = character.stats;
   const base = baseStats || character.stats;
 
@@ -26,19 +28,25 @@ export const CharacterStatus = () => {
         <div className="text-sm text-yellow-400">💰 {gold} 골드</div>
       </div>
 
-      {/* HP/MP 바 */}
+      {/* HP/MP/EXP 바 */}
       <div className="space-y-2">
         <StatusBar 
-          current={computedStats.hp} 
-          max={computedStats.maxHp} 
+          current={computedStats.hp || computedStats.currentHP || 0} 
+          max={totalStats.maxHp || totalStats.maxHP || computedStats.maxHp || computedStats.maxHP || 100} 
           label="HP"
           color="bg-red-600" 
         />
         <StatusBar 
-          current={computedStats.mp} 
-          max={computedStats.maxMp} 
+          current={computedStats.mp || computedStats.currentMP || 0} 
+          max={totalStats.maxMp || totalStats.maxMP || computedStats.maxMp || computedStats.maxMP || 80} 
           label="MP"
           color="bg-blue-600" 
+        />
+        <StatusBar 
+          current={character.experience} 
+          max={character.experienceToNext} 
+          label="EXP"
+          color="bg-purple-600" 
         />
       </div>
 
@@ -47,10 +55,10 @@ export const CharacterStatus = () => {
         <div>
           <span className="text-gray-400">STR:</span>{' '}
           <span className="flex items-center gap-1">
-            {base.strength}
-            {computedStats.strength > base.strength && (
+            {totalStats.strength}
+            {totalStats.strength > base.strength && (
               <span className="text-green-500 text-xs">
-                (+{computedStats.strength - base.strength})
+                (+{totalStats.strength - base.strength})
               </span>
             )}
           </span>
@@ -58,10 +66,10 @@ export const CharacterStatus = () => {
         <div>
           <span className="text-gray-400">DEF:</span>{' '}
           <span className="flex items-center gap-1">
-            {base.defense}
-            {computedStats.defense > base.defense && (
+            {totalStats.defense}
+            {totalStats.defense > base.defense && (
               <span className="text-green-500 text-xs">
-                (+{computedStats.defense - base.defense})
+                (+{totalStats.defense - base.defense})
               </span>
             )}
           </span>
@@ -69,10 +77,10 @@ export const CharacterStatus = () => {
         <div>
           <span className="text-gray-400">ATK:</span>{' '}
           <span className="flex items-center gap-1">
-            {(base.strength || 0) + (base.attack || 0)}
-            {((computedStats.strength || 0) + (computedStats.attack || 0)) > ((base.strength || 0) + (base.attack || 0)) && (
+            {totalStats.attack}
+            {totalStats.attack > ((base.strength || 0) + (base.attack || 0)) && (
               <span className="text-green-500 text-xs">
-                (+{((computedStats.strength || 0) + (computedStats.attack || 0)) - ((base.strength || 0) + (base.attack || 0))})
+                (+{totalStats.attack - ((base.strength || 0) + (base.attack || 0))})
               </span>
             )}
           </span>
@@ -80,10 +88,10 @@ export const CharacterStatus = () => {
         <div>
           <span className="text-gray-400">INT:</span>{' '}
           <span className="flex items-center gap-1">
-            {base.intelligence}
-            {computedStats.intelligence > base.intelligence && (
+            {totalStats.intelligence}
+            {totalStats.intelligence > base.intelligence && (
               <span className="text-green-500 text-xs">
-                (+{computedStats.intelligence - base.intelligence})
+                (+{totalStats.intelligence - base.intelligence})
               </span>
             )}
           </span>

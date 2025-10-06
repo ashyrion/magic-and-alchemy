@@ -83,6 +83,7 @@ interface InventoryStore extends InventoryState {
   findMaterial: (materialId: string) => Material | undefined;
   getEquippedStats: () => { [key: string]: number };
   canEquipItem: (item: Item, slot?: EquipmentSlot) => boolean;
+  checkEquipRequirements: (item: Item, slot?: EquipmentSlot) => { canEquip: boolean; errorMessage?: string };
 }
 
 export const useInventoryStore = create<InventoryStore>()(
@@ -299,6 +300,90 @@ export const useInventoryStore = create<InventoryStore>()(
               break;
             }
               
+            case 'potion-health-small': {
+              // 작은 체력 물약 - 30 HP 회복
+              const currentHp = gameStore.character.stats.hp || 0;
+              const maxHp = gameStore.character.stats.maxHp || 100;
+              const healAmount = Math.min(30, maxHp - currentHp);
+              
+              if (healAmount > 0) {
+                const newHp = currentHp + healAmount;
+                gameStore.updateCharacterStats({
+                  ...gameStore.character.stats,
+                  hp: newHp
+                });
+                storeEvents.emit('system-log', `${item.name}을(를) 사용하여 ${healAmount}의 체력을 회복했습니다.`);
+                effectApplied = true;
+              } else {
+                storeEvents.emit('system-log', '체력이 이미 최대입니다.');
+                effectApplied = false;
+              }
+              break;
+            }
+              
+            case 'potion-mana-small': {
+              // 작은 마나 물약 - 25 MP 회복
+              const currentMp = gameStore.character.stats.mp || 0;
+              const maxMp = gameStore.character.stats.maxMp || 50;
+              const manaAmount = Math.min(25, maxMp - currentMp);
+              
+              if (manaAmount > 0) {
+                const newMp = currentMp + manaAmount;
+                gameStore.updateCharacterStats({
+                  ...gameStore.character.stats,
+                  mp: newMp
+                });
+                storeEvents.emit('system-log', `${item.name}을(를) 사용하여 ${manaAmount}의 마나를 회복했습니다.`);
+                effectApplied = true;
+              } else {
+                storeEvents.emit('system-log', '마나가 이미 최대입니다.');
+                effectApplied = false;
+              }
+              break;
+            }
+              
+            case 'potion-health-medium': {
+              // 체력 물약 - 60 HP 회복
+              const currentHp = gameStore.character.stats.hp || 0;
+              const maxHp = gameStore.character.stats.maxHp || 100;
+              const healAmount = Math.min(60, maxHp - currentHp);
+              
+              if (healAmount > 0) {
+                const newHp = currentHp + healAmount;
+                gameStore.updateCharacterStats({
+                  ...gameStore.character.stats,
+                  hp: newHp
+                });
+                storeEvents.emit('system-log', `${item.name}을(를) 사용하여 ${healAmount}의 체력을 회복했습니다.`);
+                effectApplied = true;
+              } else {
+                storeEvents.emit('system-log', '체력이 이미 최대입니다.');
+                effectApplied = false;
+              }
+              break;
+            }
+              
+            case 'potion-mana-medium': {
+              // 마나 물약 - 50 MP 회복
+              const currentMp = gameStore.character.stats.mp || 0;
+              const maxMp = gameStore.character.stats.maxMp || 50;
+              const manaAmount = Math.min(50, maxMp - currentMp);
+              
+              if (manaAmount > 0) {
+                const newMp = currentMp + manaAmount;
+                gameStore.updateCharacterStats({
+                  ...gameStore.character.stats,
+                  mp: newMp
+                });
+                storeEvents.emit('system-log', `${item.name}을(를) 사용하여 ${manaAmount}의 마나를 회복했습니다.`);
+                effectApplied = true;
+              } else {
+                storeEvents.emit('system-log', '마나가 이미 최대입니다.');
+                effectApplied = false;
+              }
+              break;
+            }
+              
             case 'super-potion': {
               // 만능 물약 - 100 HP, 50 MP 회복
               const currentHpSuper = gameStore.character.stats.hp || 0;
@@ -363,10 +448,25 @@ export const useInventoryStore = create<InventoryStore>()(
       equipItem(itemId: string, slot?: EquipmentSlot) {
         const { items } = get();
         const itemIndex = items.findIndex(item => item.id === itemId && !item.isEquipped);
-        if (itemIndex === -1) return false;
+        if (itemIndex === -1) {
+          console.log('장착 실패: 아이템을 찾을 수 없습니다.');
+          return false;
+        }
         
         const item = items[itemIndex];
-        if (!get().canEquipItem(item, slot)) return false;
+        const equipCheck = get().checkEquipRequirements(item, slot);
+        
+        if (!equipCheck.canEquip) {
+          // 에러 메시지 로그 및 이벤트 발생
+          console.log(`장착 실패: ${equipCheck.errorMessage}`);
+          
+          // storeEvents를 사용하여 에러 메시지를 전송
+          import('./storeEvents').then(({ storeEvents }) => {
+            storeEvents.emit('equipment-error', equipCheck.errorMessage!);
+          }).catch(console.error);
+          
+          return false;
+        }
 
         const targetSlot = slot || (item.type as EquipmentSlot);
         const currentEquipped = get().equipment[targetSlot];
@@ -478,6 +578,30 @@ export const useInventoryStore = create<InventoryStore>()(
         }
         
         return true;
+      },
+      
+      // 상세한 에러 메시지와 함께 장착 가능 여부를 반환
+      checkEquipRequirements(item: Item, slot?: EquipmentSlot): { canEquip: boolean; errorMessage?: string } {
+        // 아이템 타입 검증
+        if (!['weapon', 'armor', 'accessory'].includes(item.type)) {
+          return { canEquip: false, errorMessage: `${item.name}은(는) 장착할 수 없는 아이템입니다.` };
+        }
+        
+        // 슬롯 호환성 검증
+        if (slot && slot !== item.type) {
+          return { canEquip: false, errorMessage: `${item.name}은(는) ${slot} 슬롯에 장착할 수 없습니다.` };
+        }
+        
+        // 레벨 제한 검증
+        const character = useGameStore.getState().character;
+        if (character && item.requiredLevel && character.level < item.requiredLevel) {
+          return { 
+            canEquip: false, 
+            errorMessage: `${item.name}을(를) 장착하려면 레벨 ${item.requiredLevel}이 필요합니다. (현재 레벨: ${character.level})` 
+          };
+        }
+        
+        return { canEquip: true };
       }
     }),
     {

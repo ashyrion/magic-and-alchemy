@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
-import { testEnemies } from '../data/battleTestData'
-import { testItems } from '../data/testData'
+import { testEnemies } from '../data/enemyData'
+import { testItems } from '../data/gameData'
 import type { DungeonRoom, DungeonConfig } from '../types/dungeon'
 
 
@@ -181,7 +181,13 @@ export const generateDungeonFloor = (
   config: DungeonConfig = {}
 ): DungeonRoom[] => {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config }
-  const { roomsPerFloor, treasureChance, eventChance, enemyLevelMultiplier, rewardMultiplier } = mergedConfig
+  
+  // 던전 레벨에 따른 난이도 조정
+  const levelMultiplier = 1 + (floorNumber - 1) * 0.3; // 30%씩 증가
+  const adjustedEnemyMultiplier = (mergedConfig.enemyLevelMultiplier || 1.0) * levelMultiplier;
+  const adjustedRewardMultiplier = (mergedConfig.rewardMultiplier || 1.0) * (1 + (floorNumber - 1) * 0.2); // 20%씩 증가
+  
+  const { roomsPerFloor, treasureChance, eventChance } = mergedConfig
 
   const grid: (DungeonRoom | null)[][] = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null))
   const rooms: DungeonRoom[] = []
@@ -245,7 +251,7 @@ export const generateDungeonFloor = (
     if (rand < treasureChance) {
       // 보물방
       const treasureItems = [testItems[Math.floor(Math.random() * testItems.length)]]
-      const gold = Math.floor((50 + Math.random() * 100) * rewardMultiplier)
+      const gold = Math.floor((50 + Math.random() * 100) * adjustedRewardMultiplier)
       
       room = {
         id: uuidv4(),
@@ -286,17 +292,18 @@ export const generateDungeonFloor = (
       // 전투방
       const enemy = { ...testEnemies[Math.floor(Math.random() * testEnemies.length)] }
       
-      // 적 레벨 조정
-      if (enemy.stats && enemyLevelMultiplier !== 1.0) {
+      // 적 레벨 조정 (던전 층수에 따라)
+      if (enemy.stats && adjustedEnemyMultiplier !== 1.0) {
         const scaledStats = { ...enemy.stats }
         Object.entries(enemy.stats).forEach(([key, value]) => {
           if (typeof value === 'number') {
-            scaledStats[key] = Math.max(1, Math.floor(value * enemyLevelMultiplier))
+            scaledStats[key] = Math.max(1, Math.floor(value * adjustedEnemyMultiplier))
           } else {
             scaledStats[key] = value
           }
         })
         enemy.stats = scaledStats
+        enemy.level = floorNumber // 적 레벨도 층수에 맞춤
       }
       
       room = {
@@ -322,7 +329,8 @@ export const generateDungeonFloor = (
   createConnections(rooms, grid)
   
   // 디버그 정보
-  console.log(`던전 생성 완료: ${rooms.length}개 방, 입구(${entrancePos.x},${entrancePos.y}), 출구(${exitPos.x},${exitPos.y})`)
+  console.log(`던전 ${floorNumber}층 생성 완료: ${rooms.length}개 방, 입구(${entrancePos.x},${entrancePos.y}), 출구(${exitPos.x},${exitPos.y})`)
+  console.log(`난이도 배율: 적 ${adjustedEnemyMultiplier.toFixed(2)}x, 보상 ${adjustedRewardMultiplier.toFixed(2)}x`)
   rooms.forEach(room => {
     if (room.position) {
       console.log(`${room.type}(${room.position.x},${room.position.y}): 연결 ${room.connections.length}개 - [${room.connections.join(', ')}]`)

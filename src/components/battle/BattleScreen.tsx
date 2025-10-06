@@ -3,12 +3,24 @@ import { useGameStore } from '../../store/gameStore';
 import type { Combatant } from '../../types/battle';
 import type { Skill } from '../../types/gameTypes';
 import { BattleLog } from './BattleLog';
+import { BattleResult } from './BattleResult';
 
 import { useEffect } from 'react';
 
 export const BattleScreen = () => {
   // State 및 핸들러 정의
-  const { player, enemy, currentTurn, inBattle, syncPlayerSkills, updatePlayerStats, attemptFlee } = useBattleStore();
+  const { 
+    player, 
+    enemy, 
+    currentTurn, 
+    inBattle, 
+    syncPlayerSkills, 
+    updatePlayerStats, 
+    attemptFlee,
+    battleResult,
+    showBattleResult,
+    closeBattleResult
+  } = useBattleStore();
   const equippedSkills = useGameStore((state) => state.equippedSkills);
   const character = useGameStore((state) => state.character);
   
@@ -25,6 +37,12 @@ export const BattleScreen = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equippedSkills]);
+
+  // 디버그: showBattleResult 상태 추적
+  useEffect(() => {
+    console.log('[BattleScreen] showBattleResult 상태 변화:', showBattleResult);
+    console.log('[BattleScreen] battleResult:', battleResult);
+  }, [showBattleResult, battleResult]);
 
   // 캐릭터 상태 실시간 동기화
   useEffect(() => {
@@ -52,7 +70,11 @@ export const BattleScreen = () => {
   
 
 
-  if (!inBattle || !player || !enemy) {
+  // 전투 결과 화면이 표시되어야 하는 경우, 전투 화면 위에 오버레이로 표시
+  const shouldShowBattleResult = showBattleResult && battleResult;
+
+  // 전투 중이거나 결과 표시 중일 때만 화면 유지, 그 외에는 "전투가 시작되지 않았습니다" 표시
+  if (!player || !enemy) {
     return (
       <div className="text-center p-8">
         <div className="text-gray-500 text-lg mb-4">전투가 시작되지 않았습니다.</div>
@@ -105,30 +127,26 @@ export const BattleScreen = () => {
   );
 
   return (
-    <div>
-      {/* 적 캐릭터 */}
-      <div className="mb-8">
-        {renderCharacter(enemy)}
-      </div>
-
-        {/* 배틀 로그 */}
-        <div className="mb-8">
-          <BattleLog />
-          <div className="mt-2 text-center text-gray-400">
-            {`현재 ${currentTurn === player.id ? '플레이어' : '적'}의 턴입니다.`}
+    <div className="battle-screen min-h-screen bg-gradient-to-b from-red-900 to-gray-900 text-white p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* 전투 정보 헤더 */}
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold mb-2">전투</h2>
+          <div className="text-lg text-red-300">
+            {currentTurn === player.id ? '당신의 차례' : `${enemy.name}의 차례`}
           </div>
         </div>
 
-        {/* 플레이어 캐릭터 */}
-        <div className="mb-8">
+        {/* 전투 참가자 정보 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           {renderCharacter(player)}
+          {renderCharacter(enemy)}
         </div>
 
         {/* 전투 컨트롤 */}
-        <div className="bg-gray-800 rounded p-4">
+        <div className="bg-gray-800 rounded p-4 mb-6">
           {/* 스킬 목록 */}
           <div className="grid grid-cols-2 gap-2 mb-4">
-            {/* 전투 중에는 player.skills 사용, 전투 전에는 equippedSkills 사용 */}
             {(player?.skills?.length > 0) ? (
               player.skills.map((skill: Skill) => (
                 <button
@@ -184,6 +202,22 @@ export const BattleScreen = () => {
             </button>
           </div>
         </div>
+
+        {/* 전투 로그 */}
+        <div className="mt-6">
+          <BattleLog />
+        </div>
       </div>
+      
+      {/* 전투 결과 오버레이 - 전투 화면 위에 표시 */}
+      {shouldShowBattleResult && battleResult && (
+        <BattleResult
+          victory={battleResult.victory}
+          enemy={battleResult.enemy}
+          rewards={battleResult.rewards}
+          onClose={closeBattleResult}
+        />
+      )}
+    </div>
   );
 };

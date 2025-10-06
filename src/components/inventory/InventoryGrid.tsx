@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, Slot } from '../common';
 import type { Item, Material } from '../../types/gameTypes';
 import { useInventoryStore } from '../../store/inventoryStore';
+import { useGameStore } from '../../store/gameStore';
 
 interface ItemSlotProps {
   item: Item;
@@ -10,6 +11,11 @@ interface ItemSlotProps {
 }
 
 const ItemSlot = ({ item, onClick, onUseItem }: ItemSlotProps) => {
+  const character = useGameStore((state) => state.character);
+  const currentLevel = character?.level || 1;
+  const requiredLevel = item.requiredLevel || 1;
+  const canEquip = currentLevel >= requiredLevel;
+  
   const handleUseItem = (e: React.MouseEvent) => {
     e.stopPropagation();
     console.log(`아이템 사용 시도: ${item.name} (${item.id})`);
@@ -29,13 +35,39 @@ const ItemSlot = ({ item, onClick, onUseItem }: ItemSlotProps) => {
     <Slot
       icon={item.type}
       onClick={() => onClick?.(item)}
+      className={`transition-all ${
+        ['weapon', 'armor', 'accessory'].includes(item.type) && !canEquip 
+          ? 'opacity-50 border-red-500 border' 
+          : ''
+      }`}
     >
       <div className="text-center">
-        <div className="text-sm truncate">{item.name}</div>
+        <div className={`text-sm truncate ${
+          ['weapon', 'armor', 'accessory'].includes(item.type) && !canEquip 
+            ? 'text-red-400' 
+            : ''
+        }`}>{item.name}</div>
+        
+        {/* 레벨 제한 표시 */}
+        {['weapon', 'armor', 'accessory'].includes(item.type) && requiredLevel > 1 && (
+          <div className={`text-xs font-semibold ${
+            canEquip ? 'text-green-400' : 'text-red-400'
+          }`}>
+            요구 레벨: {requiredLevel}
+          </div>
+        )}
+        
         {item.stats && (
           <div className="text-xs text-gray-400">
             {item.stats.attack && `+${item.stats.attack} 공격`}
             {item.stats.defense && `+${item.stats.defense} 방어`}
+            {item.stats.magicAttack && `+${item.stats.magicAttack} 마공`}
+            {item.stats.intelligence && `+${item.stats.intelligence} 지능`}
+            {item.stats.mpRegen && `+${item.stats.mpRegen} MP회복`}
+            {item.stats.strength && `+${item.stats.strength} 근력`}
+            {item.stats.vitality && `+${item.stats.vitality} 체력`}
+            {item.stats.wisdom && `+${item.stats.wisdom} 지혜`}
+            {item.stats.agility && `+${item.stats.agility} 민첩`}
           </div>
         )}
         {item.type === 'consumable' && item.originalId && (

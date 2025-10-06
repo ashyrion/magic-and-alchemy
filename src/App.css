@@ -53,6 +53,22 @@
   background: #1a202c;
 }
 
+/* 토스트 애니메이션 */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* 반응형 디자인 */
 @media (max-width: 768px) {
   .tab-button {

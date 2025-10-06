@@ -2,9 +2,21 @@ import { create } from 'zustand'
 import type { BattleState, BattleLog, Combatant } from '../types/battle'
 import type { Skill } from '../types/gameTypes'
 
+interface BattleResult {
+  victory: boolean;
+  enemy: Combatant;
+  rewards: {
+    experience: number;
+    gold: number;
+    items: string[];
+  };
+}
+
 interface BattleStore extends BattleState {
+  battleResult: BattleResult | null;
+  showBattleResult: boolean;
   startBattle: (player: Combatant, enemy: Combatant) => void
-  endBattle: (victory?: boolean) => void
+  endBattle: (victory: boolean, enemy: Combatant, rewards: BattleResult['rewards']) => void
   addLog: (message: string, type: BattleLog['type'], details?: BattleLog['details']) => void
   nextTurn: () => void
   basicAttack: () => void
@@ -14,6 +26,7 @@ interface BattleStore extends BattleState {
   syncPlayerSkills: (equippedSkills: Skill[]) => void
   syncWithGameStore: () => void
   attemptFlee: () => void
+  closeBattleResult: () => void
 }
 
 export const useBattleStore = create<BattleStore>((set, get) => ({
@@ -24,6 +37,8 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
   currentTurn: null,
   currentRound: 0,
   battleLogs: [],
+  battleResult: null,
+  showBattleResult: false,
 
   startBattle: (player: Combatant, enemy: Combatant) => {
     set({
@@ -37,41 +52,127 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     })
   },
 
-  endBattle: (victory = false) => {
-    // 던전에서 전투 중이었다면 승리 시 방을 클리어
-    const wasInBattle = get().inBattle;
-    console.log('[전투] 전투 종료:', { wasInBattle, victory });
+    endBattle: (victory: boolean, enemy: Combatant, rewards: BattleResult['rewards']) => {
+    console.log('endBattle 호출됨:', { victory, enemy: enemy.name, rewards });
     
-    if (wasInBattle && victory) {
-      console.log('[전투] 승리! 던전 방 클리어 시도');
+    const battleResult: BattleResult = {
+      victory,
+      enemy,
+      rewards
+    };
+    
+    console.log('전투 상태 업데이트 전:', get());
+    
+    set((state) => ({
+      ...state,
+      inBattle: false,
+      showBattleResult: true,
+      battleResult,
+      currentTurn: null,
+      // 전투 결과 표시 중에는 플레이어와 적 데이터를 유지
+      // player: null,
+      // enemy: null
+    }));
+    
+    console.log('전투 상태 업데이트 후:', get());
+  },
+
+    closeBattleResult: async () => {
+    const state = get();
+    const wasVictory = state.battleResult?.victory || false;
+    const rewards = state.battleResult?.rewards;
+    
+    console.log('[전투] 결과 화면 닫기 시작 - 승리:', wasVictory);
+    
+    // 전투 승리 시 보상 지급
+    if (wasVictory && rewards) {
       try {
-        // 동적 import를 사용하여 순환 참조 방지
-        import('./dungeonStore').then(({ useDungeonStore }) => {
-          const dungeonState = useDungeonStore.getState();
-          console.log('[전투] 던전 상태:', { 
-            isInDungeon: dungeonState.isInDungeon, 
-            currentRoomId: dungeonState.currentRoomId 
-          });
-          if (dungeonState.isInDungeon && dungeonState.currentRoomId) {
-            dungeonState.clearCurrentRoom();
-          }
-        }).catch((error) => {
-          console.error('[전투] 던전 스토어 import 실패:', error);
-        });
+        const { useGameStore } = await import('./gameStore');
+        const gameStore = useGameStore.getState();
+        
+        // 경험치 획득
+        if (rewards.experience > 0) {
+          gameStore.addExperience(rewards.experience);
+          console.log('[전투] 경험치 지급:', rewards.experience);
+        }
+        
+        // 골드 획득
+        if (rewards.gold > 0) {
+          gameStore.addGold(rewards.gold);
+          console.log('[전투] 골드 지급:', rewards.gold);
+        }
       } catch (error) {
-        console.error('[전투] 던전 방 클리어 오류:', error);
+        console.error('[전투] 보상 지급 실패:', error);
       }
     }
-
-    set({
-      inBattle: false,
+    
+    // 결과 화면 닫기 및 전투 데이터 정리
+    set({ 
+      battleResult: null, 
+      showBattleResult: false,
       player: null,
-      enemy: null,
-      turnOrder: [],
-      currentTurn: null,
-      currentRound: 0,
-      battleLogs: []
-    })
+      enemy: null
+    });
+    
+    // 후속 처리
+    if (wasVictory) {
+      // 전투 승리 시 던전 방 클리어
+      console.log('[전투] 던전 방 클리어 시도');
+      try {
+        const { useDungeonStore } = await import('./dungeonStore');
+        const dungeonState = useDungeonStore.getState();
+        console.log('[전투] 던전 상태:', { 
+          isInDungeon: dungeonState.isInDungeon, 
+          currentRoomId: dungeonState.currentRoomId 
+        });
+        if (dungeonState.isInDungeon && dungeonState.currentRoomId) {
+          dungeonState.clearCurrentRoom();
+          console.log('[전투] 던전 방 클리어 완료');
+        }
+      } catch (error) {
+        console.error('[전투] 던전 클리어 실패:', error);
+      }
+    } else {
+      // 전투 패배 시 마을로 이동
+      console.log('[전투] 전투 패배 - 마을로 이동');
+      try {
+        const [{ useGameStore }, { useGameStateStore }] = await Promise.all([
+          import('./gameStore'),
+          import('./gameStateStore')
+        ]);
+        
+        const gameState = useGameStore.getState();
+        const gameStateStore = useGameStateStore.getState();
+        
+        // 캐릭터 HP를 1로 설정 (죽지 않게 하되 위험 상태로)
+        if (gameState.character) {
+          const currentHP = gameState.character.stats.currentHP ?? gameState.character.stats.hp ?? 0;
+          
+          // HP가 0 이하인 경우 1로 설정 (모든 HP 필드 업데이트)
+          if (currentHP <= 0) {
+            console.log('[전투] 패배 시 HP 상태:', {
+              currentHP: gameState.character.stats.currentHP,
+              hp: gameState.character.stats.hp,
+              selectedHP: currentHP
+            });
+            
+            // updateCharacterStats를 사용하여 모든 HP 필드를 안전하게 업데이트
+            gameState.updateCharacterStats({
+              hp: 1,              // 레거시 필드
+              currentHP: 1,       // 현재 사용 중인 필드
+            });
+            
+            console.log('[전투] 캐릭터 HP를 1로 설정 완료');
+          }
+        }
+        
+        // 마을로 이동
+        gameStateStore.goToTown();
+        console.log('[전투] 마을로 이동 완료');
+      } catch (error) {
+        console.error('[전투] 패배 처리 실패:', error);
+      }
+    }
   },
 
     addLog: (message, type, details) => {
@@ -199,7 +300,15 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     // 적이 죽었는지 확인
     if (newEnemyHp <= 0) {
       get().addLog(`${enemy.name}을(를) 처치했습니다!`, 'system')
-      get().endBattle(true) // 승리
+      
+      // 보상 계산
+      const rewards = {
+        experience: Math.floor((enemy.level || 1) * 10 + Math.random() * 20),
+        gold: Math.floor((enemy.level || 1) * 5 + Math.random() * 10),
+        items: [] // TODO: 나중에 아이템 드롭 시스템 추가
+      };
+      
+      get().endBattle(true, enemy, rewards)
       return
     }
 
@@ -310,9 +419,10 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
           if (gameStore.character) {
             gameStore.updateCharacterStats({
               ...gameStore.character.stats,
-              mp: newPlayerMp
+              mp: newPlayerMp,
+              currentMP: newPlayerMp  // MP 필드명 통일을 위해 추가
             })
-            console.log('[전투] 플레이어 MP 동기화:', newPlayerMp)
+            console.log('[전투] 플레이어 MP 동기화:', { mp: newPlayerMp, currentMP: newPlayerMp })
           }
         } catch (error) {
           console.error('게임 스토어 MP 동기화 오류:', error)
@@ -345,7 +455,15 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       // 적이 죽었는지 확인
       if (newEnemyHp <= 0) {
         get().addLog(`${enemy.name}을(를) 처치했습니다!`, 'system')
-        get().endBattle(true) // 승리
+        
+        // 보상 계산
+        const rewards = {
+          experience: Math.floor((enemy.level || 1) * 10 + Math.random() * 20),
+          gold: Math.floor((enemy.level || 1) * 5 + Math.random() * 10),
+          items: [] // TODO: 나중에 아이템 드롭 시스템 추가
+        };
+        
+        get().endBattle(true, enemy, rewards)
         return
       }
     }
@@ -386,9 +504,10 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
         if (gameStore.character) {
           gameStore.updateCharacterStats({
             ...gameStore.character.stats,
-            hp: newPlayerHp
+            hp: newPlayerHp,
+            currentHP: newPlayerHp  // HP 필드명 통일을 위해 추가
           })
-          console.log('[전투] 플레이어 HP 동기화:', newPlayerHp)
+          console.log('[전투] 플레이어 HP 동기화:', { hp: newPlayerHp, currentHP: newPlayerHp })
         }
       } catch (error) {
         console.error('게임 스토어 동기화 오류:', error)
@@ -402,7 +521,15 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     // 플레이어가 죽었는지 확인
     if (newPlayerHp <= 0) {
       get().addLog(`패배했습니다...`, 'system')
-      get().endBattle(false) // 패배
+      
+      // 패배 시 빈 보상
+      const rewards = {
+        experience: 0,
+        gold: 0,
+        items: []
+      };
+      
+      get().endBattle(false, enemy, rewards)
       return
     }
 
@@ -466,7 +593,15 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     
     if (fleeSuccess) {
       get().addLog(`도망에 성공했습니다! (확률: ${Math.round(fleeChance)}%)`, 'system')
-      get().endBattle(false) // 도망은 패배로 처리
+      
+      // 도망 시 빈 보상
+      const rewards = {
+        experience: 0,
+        gold: 0,
+        items: []
+      };
+      
+      get().endBattle(false, enemy, rewards)
     } else {
       get().addLog(`도망에 실패했습니다... (확률: ${Math.round(fleeChance)}%)`, 'system')
       // 도망 실패 시 턴 넘기기

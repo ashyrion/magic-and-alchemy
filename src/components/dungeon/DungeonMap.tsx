@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { DungeonCard } from './DungeonCard';
 import type { DungeonRoom } from '../../types/dungeon';
 import './DungeonCardMap.css';
@@ -22,6 +22,26 @@ export const DungeonMap: React.FC<DungeonMapProps> = ({
   
   const [flippedCards, setFlippedCards] = useState<Set<string>>(initialFlipped);
   const [battleHighlight, setBattleHighlight] = useState<string | null>(null);
+
+  // 방 상태 변화 감지하여 카드 플립 상태 업데이트
+  useEffect(() => {
+    const clearedRooms = rooms.filter(room => room.status === 'cleared' || room.status === 'in-progress');
+    
+    setFlippedCards(prev => {
+      const newFlipped = new Set(prev);
+      
+      clearedRooms.forEach(room => {
+        newFlipped.add(room.id);
+      });
+      
+      // 시작방도 항상 뒤집어진 상태로 유지
+      if (startRoom) {
+        newFlipped.add(startRoom.id);
+      }
+      
+      return newFlipped;
+    });
+  }, [rooms, startRoom]);
   
   // rooms가 변경될 때마다 시작방 뒤집기 상태 업데이트
   React.useEffect(() => {
@@ -89,10 +109,13 @@ export const DungeonMap: React.FC<DungeonMapProps> = ({
   };
 
   const handleCardClick = useCallback((room: DungeonRoom) => {
-    // 카드 뒤집기 (출구 카드는 flippedCards 상태에 추가하지 않음)
-    if (room.status === 'hidden' && !flippedCards.has(room.id)) {
-      // 출구가 아닌 경우만 flippedCards 상태 업데이트
+    // 카드 뒤집기 로직
+    const isCardFlipped = flippedCards.has(room.id) || room.status !== 'hidden';
+    
+    if (!isCardFlipped) {
+      // 카드를 뒤집는 경우
       if (room.type !== 'exit') {
+        // 출구가 아닌 경우만 flippedCards 상태 업데이트
         setFlippedCards(prev => {
           const newSet = new Set([...prev, room.id]);
           console.log('[DungeonMap] 카드 뒤집기:', room.id, '전체:', [...newSet]);
@@ -110,7 +133,7 @@ export const DungeonMap: React.FC<DungeonMapProps> = ({
           onRoomClick(room.id);
         }, 1000);
       } else {
-        // 다른 타입은 바로 처리
+        // 다른 타입은 바로 처리 (출구 포함)
         setTimeout(() => {
           onRoomClick(room.id);
         }, 300);

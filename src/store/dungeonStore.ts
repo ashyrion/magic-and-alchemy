@@ -12,7 +12,37 @@ import { useBattleStore } from './battleStore'
 import { useGameStore } from './gameStore'
 import { useInventoryStore } from './inventoryStore'
 
+interface TreasureResult {
+  gold: number;
+  items?: string[];
+}
+
+interface EventResult {
+  eventType: string;
+  effect: string;
+  description: string;
+  value?: number;
+}
+
 interface DungeonStore extends DungeonState {
+  // 던전 레벨 시스템
+  currentLevel: number;
+  maxReachedLevel: number;
+  
+  // 출구 선택지 상태
+  showExitChoice: boolean;
+  exitChoiceResult: 'next' | 'town' | null;
+  
+  // 보물 결과 상태
+  treasureResult: TreasureResult | null;
+  showTreasureResult: boolean;
+  closeTreasureResult: () => void;
+  
+  // 이벤트 결과 상태
+  eventResult: EventResult | null;
+  showEventResult: boolean;
+  closeEventResult: () => void;
+  
   // 기존 기능
   startDungeon: (config?: DungeonConfig) => void
   enterRoom: (roomId: string) => void
@@ -20,6 +50,16 @@ interface DungeonStore extends DungeonState {
   advanceFloor: () => void
   resetDungeon: () => void
   addLog: (message: string) => void
+  
+  // 던전 레벨 관리
+  startDungeonAtLevel: (level: number, config?: DungeonConfig) => void
+  proceedToNextLevel: () => void
+  returnToTown: () => void
+  
+  // 출구 선택지
+  showExitChoiceModal: () => void
+  hideExitChoiceModal: () => void
+  selectExitChoice: (choice: 'next' | 'town') => void
   
   // 새로운 기능들
   initializeDungeonFromTemplate: (templateId: string) => boolean
@@ -74,6 +114,14 @@ const markRoomStatus = (rooms: DungeonRoom[], roomId: string, status: DungeonRoo
 export const useDungeonStore = create<DungeonStore>()(
   devtools((set, get) => ({
     ...initialState,
+    currentLevel: 1,
+    maxReachedLevel: 1,
+    showExitChoice: false,
+    exitChoiceResult: null,
+    treasureResult: null,
+    showTreasureResult: false,
+    eventResult: null,
+    showEventResult: false,
 
     addLog: (message: string) => {
       const entry: DungeonLogEntry = {
@@ -92,12 +140,13 @@ export const useDungeonStore = create<DungeonStore>()(
     },
 
     startDungeon: (config) => {
-      const rooms = generateDungeonFloor(1, config)
+      const currentLevel = get().currentLevel;
+      const rooms = generateDungeonFloor(currentLevel, config)
       const startRoom = rooms.find(r => r.type === 'start') || rooms[0]
       
       set({
         initialized: true,
-        currentFloor: 1,
+        currentFloor: currentLevel,
         rooms,
         currentRoomId: startRoom?.id || null,
         clearedFloors: [],
@@ -106,7 +155,7 @@ export const useDungeonStore = create<DungeonStore>()(
         canExitDungeon: true
       })
       
-      get().addLog('던전 탐험을 시작합니다! 입구에 도착했습니다.')
+      get().addLog(`던전 ${currentLevel}층 탐험을 시작합니다! 입구에 도착했습니다.`)
     },
 
     enterRoom: (roomId) => {
@@ -185,7 +234,11 @@ export const useDungeonStore = create<DungeonStore>()(
       }
 
       if (targetRoom.type === 'exit') {
-        get().addLog('던전의 출구에 도달했습니다! 다음 층으로 이동할 수 있습니다.')
+        get().addLog('던전의 출구에 도달했습니다! 다음 층으로 이동할지 마을로 돌아갈지 선택하세요.')
+        set({
+          rooms: markRoomStatus(get().rooms, roomId, 'cleared'),
+        })
+        get().showExitChoiceModal()
         return
       }
     },
@@ -360,6 +413,72 @@ export const useDungeonStore = create<DungeonStore>()(
       // 4x4 카드 시스템에서는 flippedCards로 관리하므로 여기서는 특별한 처리 불필요
       // 연결된 방들은 접근성 로직에서 자동으로 처리됨
       console.log('[던전] revealNextRooms 호출됨 (카드 시스템에서는 불필요)');
+    },
+
+    closeTreasureResult: () => {
+      set({ 
+        treasureResult: null, 
+        showTreasureResult: false 
+      });
+    },
+
+    closeEventResult: () => {
+      set({ 
+        eventResult: null, 
+        showEventResult: false 
+      });
+    },
+
+    // 던전 레벨 관리 메서드들
+    startDungeonAtLevel: (level: number, config?: DungeonConfig) => {
+      set({ currentLevel: level });
+      get().startDungeon(config);
+    },
+
+    proceedToNextLevel: () => {
+      const currentLevel = get().currentLevel;
+      const nextLevel = currentLevel + 1;
+      
+      set({ 
+        currentLevel: nextLevel,
+        maxReachedLevel: Math.max(get().maxReachedLevel, nextLevel),
+        showExitChoice: false,
+        exitChoiceResult: null
+      });
+      
+      get().startDungeon();
+      get().addLog(`${nextLevel}층으로 진입합니다. 더욱 강력한 적들이 기다리고 있습니다!`);
+    },
+
+    returnToTown: () => {
+      set({
+        isInDungeon: false,
+        canExitDungeon: false,
+        currentRoomId: null,
+        showExitChoice: false,
+        exitChoiceResult: null,
+        initialized: false
+      });
+      get().addLog('마을로 돌아갔습니다.');
+    },
+
+    // 출구 선택지 관련 메서드들
+    showExitChoiceModal: () => {
+      set({ showExitChoice: true });
+    },
+
+    hideExitChoiceModal: () => {
+      set({ showExitChoice: false, exitChoiceResult: null });
+    },
+
+    selectExitChoice: (choice: 'next' | 'town') => {
+      set({ exitChoiceResult: choice });
+      
+      if (choice === 'next') {
+        get().proceedToNextLevel();
+      } else {
+        get().returnToTown();
+      }
     },
   }))
 )
