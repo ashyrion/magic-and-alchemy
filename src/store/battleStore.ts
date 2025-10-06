@@ -11,7 +11,7 @@ interface BattleResult {
   rewards: {
     experience: number;
     gold: number;
-    items: string[];
+    items: { id: string; count: number }[];
   };
 }
 
@@ -128,6 +128,20 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
         if (rewards.gold > 0) {
           gameStore.addGold(rewards.gold);
           console.log('[전투] 골드 지급:', rewards.gold);
+        }
+
+        // 아이템 획득
+        if (rewards.items.length > 0) {
+          const inventoryStore = useInventoryStore.getState();
+          rewards.items.forEach(rewardItem => {
+            const itemData = getItemById(rewardItem.id);
+            if (itemData) {
+              for (let i = 0; i < rewardItem.count; i++) {
+                inventoryStore.addItem(itemData);
+              }
+              console.log(`[전투] 아이템 지급: ${itemData.name} x${rewardItem.count}`);
+            }
+          });
         }
       } catch (error) {
         console.error('[전투] 보상 지급 실패:', error);
@@ -397,6 +411,7 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
             gameStore.updateCharacterStats({
               ...gameStore.character.stats,
               mp: newMana,
+              currentMP: newMana,
             })
           }
         } catch (error) {
@@ -412,19 +427,19 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
     if (newEnemyHp <= 0) {
       get().addLog(`${enemy.name}을(를) 처치했습니다!`, 'system')
       
-      // 보상 계산
-      const droppedItems: string[] = [];
+      // 보상 계산 (아이템 즉시 지급 X, 목록만 생성)
+      const droppedItems: { id: string; count: number }[] = [];
       if (enemy.rewards?.items) {
-        const inventoryStore = useInventoryStore.getState();
         enemy.rewards.items.forEach(drop => {
           if (Math.random() * 100 < drop.chance) {
-            const item = getItemById(drop.id);
-            if (item) {
-              const count = Math.floor(Math.random() * (drop.count[1] - drop.count[0] + 1)) + drop.count[0];
-              for (let i = 0; i < count; i++) {
-                inventoryStore.addItem(item);
-                droppedItems.push(item.name);
-              }
+            const count = Math.floor(Math.random() * (drop.count[1] - drop.count[0] + 1)) + drop.count[0];
+            
+            // 이미 드롭된 아이템인지 확인
+            const existingItem = droppedItems.find(d => d.id === drop.id);
+            if (existingItem) {
+              existingItem.count += count;
+            } else {
+              droppedItems.push({ id: drop.id, count: count });
             }
           }
         });
@@ -666,19 +681,19 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       if (newEnemyHp <= 0) {
         get().addLog(`${enemy.name}을(를) 처치했습니다!`, 'system')
         
-        // 보상 계산
-        const droppedItems: string[] = [];
+        // 보상 계산 (아이템 즉시 지급 X, 목록만 생성)
+        const droppedItems: { id: string; count: number }[] = [];
         if (enemy.rewards?.items) {
-          const inventoryStore = useInventoryStore.getState();
           enemy.rewards.items.forEach(drop => {
             if (Math.random() * 100 < drop.chance) {
-              const item = getItemById(drop.id);
-              if (item) {
-                const count = Math.floor(Math.random() * (drop.count[1] - drop.count[0] + 1)) + drop.count[0];
-                for (let i = 0; i < count; i++) {
-                  inventoryStore.addItem(item);
-                  droppedItems.push(item.name);
-                }
+              const count = Math.floor(Math.random() * (drop.count[1] - drop.count[0] + 1)) + drop.count[0];
+              
+              // 이미 드롭된 아이템인지 확인
+              const existingItem = droppedItems.find(d => d.id === drop.id);
+              if (existingItem) {
+                existingItem.count += count;
+              } else {
+                droppedItems.push({ id: drop.id, count: count });
               }
             }
           });
