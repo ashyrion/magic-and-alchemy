@@ -164,22 +164,7 @@ function App() {
       enhancementStore.unlockBaseSkill(skill.id);
     });
     
-    // 초기 스킬 강화용 재료 (파이어볼만 해금 가능)
-    const starterMaterials: Item[] = [
-      { id: 'essence-fragment', name: '에센스 파편', type: 'material', weight: 0.1, icon: '✨', description: '약한 마력이 깃든 작은 파편', rarity: 'common', stats: {}, effects: [] },
-      { id: 'bone-dust', name: '뼈 가루', type: 'material', weight: 0.1, icon: '🦴', description: '갈아서 만든 몬스터의 뼈 가루', rarity: 'common', stats: {}, effects: [] }
-    ];
 
-    // 파이어볼 강화용 재료 제공 (에센스 파편 3개, 뼈 가루 1개)
-    for (let i = 0; i < 3; i++) {
-      addMaterial(starterMaterials[0]);
-    }
-    for (let i = 0; i < 1; i++) {
-      addMaterial(starterMaterials[1]);
-    }
-    
-    // 골드 추가 (시작 자금)
-    gameStore.addGold(2000);
     
     console.log('✅ 스킬 강화 시스템 초기화 완료!');
     console.log('🔥 기본 스킬 6개 추가 (0단계 미해금 상태)');
@@ -201,57 +186,7 @@ function App() {
     // 캐릭터 설정
     setCharacter(testCharacter);
 
-    // 아이템 추가 (일반 등급)
-    testItems.forEach(item => {
-      addItem(item);
-    });
 
-    // 새로운 등급 시스템 아이템들 추가 (시연용)
-    const enhancedItems = [
-      generateEnhancedItem(testItems.find(i => i.type === 'weapon')!, 'magic'),
-      generateEnhancedItem(testItems.find(i => i.type === 'weapon')!, 'rare'),
-      generateEnhancedItem(testItems.find(i => i.type === 'armor')!, 'magic'),
-      generateEnhancedItem(testItems.find(i => i.type === 'armor')!, 'unique'),
-      ...generateEnhancedItems(testItems.filter(i => i.type === 'accessory'), 3)
-    ];
-    
-    enhancedItems.forEach(item => {
-      addItem(item);
-    });
-
-    // 재료 추가 (연금술용) - 현실적인 시작 재료
-    testMaterials.forEach(material => {
-      // 기본 재료는 5개, 고급/희귀 재료는 적게 시작
-      const isBasicMaterial = ['herb-red-grass', 'herb-blue-flower', 'mineral-iron-ore', 'crystal-clear-shard'].includes(material.id);
-      const isAdvancedMaterial = ['herb-golden-root', 'crystal-mana-essence', 'mineral-silver-dust', 'essence-fire-spark', 'essence-ice-fragment'].includes(material.id);
-      
-      let count = 1; // 희귀 재료 기본값
-      if (isBasicMaterial) count = 5;
-      else if (isAdvancedMaterial) count = 2;
-      
-      for (let i = 0; i < count; i++) {
-        addMaterial(material);
-      }
-    });
-
-    // testSkills 사용 안함 - 스킬 강화 시스템만 사용
-
-    // 기본 장비 장착 (레벨 1에서 장착 가능한 장비들)
-    const level1Items = testItems.filter(item => !item.requiredLevel || item.requiredLevel <= 1);
-    const weaponItems = level1Items.filter(item => item.type === 'weapon');
-    const armorItems = level1Items.filter(item => item.type === 'armor');
-    const accessoryItems = level1Items.filter(item => item.type === 'accessory');
-    
-    // 각 타입별로 첫 번째 아이템 장착
-    if (weaponItems.length > 0) {
-      gameStore.equipItem(weaponItems[0], 'weapon');
-    }
-    if (armorItems.length > 0) {
-      gameStore.equipItem(armorItems[0], 'armor');
-    }
-    if (accessoryItems.length > 0) {
-      gameStore.equipItem(accessoryItems[0], 'accessory');
-    }
 
     // 장비 장착 후 캐릭터 스탯 업데이트
     gameStore.updateCharacterStats();
