@@ -164,6 +164,7 @@ function App() {
       enhancementStore.unlockBaseSkill(skill.id);
     });
     
+    /*
     // 초기 스킬 강화용 재료 (파이어볼만 해금 가능)
     const starterMaterials: Item[] = [
       { id: 'essence-fragment', name: '에센스 파편', type: 'material', weight: 0.1, icon: '✨', description: '약한 마력이 깃든 작은 파편', rarity: 'common', stats: {}, effects: [] },
@@ -180,6 +181,7 @@ function App() {
     
     // 골드 추가 (시작 자금)
     gameStore.addGold(2000);
+    */
     
     console.log('✅ 스킬 강화 시스템 초기화 완료!');
     console.log('🔥 기본 스킬 6개 추가 (0단계 미해금 상태)');
@@ -201,6 +203,7 @@ function App() {
     // 캐릭터 설정
     setCharacter(testCharacter);
 
+    /*
     // 아이템 추가 (일반 등급)
     testItems.forEach(item => {
       addItem(item);
@@ -252,6 +255,7 @@ function App() {
     if (accessoryItems.length > 0) {
       gameStore.equipItem(accessoryItems[0], 'accessory');
     }
+    */
 
     // 장비 장착 후 캐릭터 스탯 업데이트
     gameStore.updateCharacterStats();
