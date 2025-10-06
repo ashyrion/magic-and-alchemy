@@ -283,16 +283,15 @@ const createConnections = (rooms: DungeonRoom[], grid: (DungeonRoom | null)[][])
   console.log('보장된 경로:', guaranteedPath)
   
   if (guaranteedPath.length === 0) {
-    console.error('입구에서 출구로의 경로를 찾을 수 없습니다!')
-    return
-  }
-  
-  // 2단계: 보장된 경로를 따라 양방향 연결 생성
-  for (let i = 0; i < guaranteedPath.length - 1; i++) {
-    const current = guaranteedPath[i]
-    const next = guaranteedPath[i + 1]
+    console.error('입구에서 출구로의 경로를 찾을 수 없습니다! 나머지 연결 로직으로 보완합니다.')
+  } else {
+    // 2단계: 보장된 경로를 따라 양방향 연결 생성
+    for (let i = 0; i < guaranteedPath.length - 1; i++) {
+      const current = guaranteedPath[i]
+      const next = guaranteedPath[i + 1]
     
-    addBidirectionalConnection(rooms, current, next)
+      addBidirectionalConnection(rooms, current, next)
+    }
   }
   
   // 3단계: 추가 양방향 연결 생성 (연결성 개선을 위해 확률 증가)
