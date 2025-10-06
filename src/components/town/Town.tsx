@@ -1,23 +1,29 @@
-import React from 'react'
-import { useGameStore } from '../../store/gameStore'
-import { useDungeonStore } from '../../store/dungeonStore'
-import { useGameStateStore } from '../../store/gameStateStore'
+import React, { useState } from 'react';
+import { useGameStore } from '../../store/gameStore';
+import { useDungeonStore } from '../../store/dungeonStore';
+import { useGameStateStore } from '../../store/gameStateStore';
+import { DungeonSelectionModal } from '../dungeon/DungeonSelectionModal';
+import type { DungeonConfig } from '../../types/dungeon';
 
 const Town: React.FC = () => {
   const { character, calculateTotalStats, gold } = useGameStore()
-  const { startDungeon } = useDungeonStore()
-  const { enterDungeon } = useGameStateStore()
+  const { startDungeon } = useDungeonStore();
+  const { enterDungeon } = useGameStateStore();
+  const [isDungeonModalOpen, setIsDungeonModalOpen] = useState(false);
 
   // 장비 스탯이 반영된 총 스탯 계산
-  const totalStats = calculateTotalStats()
+  const totalStats = calculateTotalStats();
 
-  const handleEnterDungeon = () => {
-    console.log('[Town] 던전 입장 시도')
-    // 새로운 던전 시작
-    startDungeon()
-    // 게임 위치를 던전으로 변경
-    enterDungeon()
-  }
+  const handleEnterDungeonClick = () => {
+    setIsDungeonModalOpen(true);
+  };
+
+  const handleDungeonSelected = (config: DungeonConfig) => {
+    console.log('[Town] 던전 선택됨:', config);
+    startDungeon(config);
+    enterDungeon();
+    setIsDungeonModalOpen(false);
+  };
 
   const handleFullHeal = () => {
     console.log('[Town] 완전 회복 시도')
@@ -224,7 +230,7 @@ const Town: React.FC = () => {
                 위험하지만 큰 보상이 기다리고 있습니다.
               </p>
               <button 
-                onClick={handleEnterDungeon}
+                onClick={handleEnterDungeonClick}
                 className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
               >
                 🗡️ 던전 입장
@@ -284,6 +290,12 @@ const Town: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <DungeonSelectionModal
+        isOpen={isDungeonModalOpen}
+        onClose={() => setIsDungeonModalOpen(false)}
+        onSelectDungeon={handleDungeonSelected}
+      />
     </div>
   )
 }

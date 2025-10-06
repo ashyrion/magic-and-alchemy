@@ -1,4 +1,4 @@
-import type { Item, Material, GeneratedItem, StatusEffect } from '../types/gameTypes';
+import type { Item, Material, GeneratedItem, StatusEffect, Skill } from '../types/gameTypes';
 
 /**
  * 범용 아이템 툴팁 생성 함수
@@ -24,8 +24,15 @@ const RARITY_COLORS = {
 /**
  * GeneratedItem인지 확인하는 타입 가드
  */
-function isGeneratedItem(item: Item | GeneratedItem): item is GeneratedItem {
+function isGeneratedItem(item: any): item is GeneratedItem {
   return 'rarity' in item && 'displayName' in item && 'colorCode' in item;
+}
+
+/**
+ * Skill인지 확인하는 타입 가드
+ */
+function isSkill(item: any): item is Skill {
+  return item && typeof item.power === 'number' && typeof item.cost === 'number' && !isGeneratedItem(item) && !('weight' in item);
 }
 
 /**
@@ -281,7 +288,12 @@ export function generateMaterialTooltip(material: Material, count?: number): str
 /**
  * 범용 아이템 툴팁 생성 (모든 타입 지원)
  */
-export function generateUniversalItemTooltip(item: Item | GeneratedItem | Material, count?: number): string {
+export function generateUniversalItemTooltip(item: Item | GeneratedItem | Material | Skill, count?: number): string {
+  // Skill 처리
+  if (isSkill(item)) {
+    return generateSkillTooltip(item);
+  }
+
   // GeneratedItem 처리
   if (isGeneratedItem(item)) {
     return generateEnhancedItemTooltip(item);
@@ -293,7 +305,51 @@ export function generateUniversalItemTooltip(item: Item | GeneratedItem | Materi
   }
   
   // 기본 Item 처리
-  return generateBasicItemTooltip(item);
+  return generateBasicItemTooltip(item as Item);
+}
+
+/**
+ * 스킬 툴팁 생성
+ */
+export function generateSkillTooltip(skill: Skill): string {
+  const typeColor = '#93c5fd'; // 스킬은 파란색 계열
+
+  let html = `
+    <div style="color: ${typeColor}; font-weight: bold; font-size: 14px; margin-bottom: 4px;">
+      ${skill.icon || '✨'} ${skill.name}
+    </div>
+    <div style="color: #888; font-size: 11px; margin-bottom: 8px; text-transform: capitalize;">
+      ${skill.type} 스킬
+    </div>
+  `;
+
+  const details = {
+    '소모 MP': skill.cost,
+    '위력': skill.power,
+    '재사용 대기시간': skill.cooldown ? `${skill.cooldown}턴` : '즉시',
+    '사거리': skill.range,
+    '명중률': skill.accuracy ? `${skill.accuracy}%` : '-',
+  };
+
+  html += '<div style="margin: 8px 0; padding: 6px; background-color: rgba(0,0,0,0.3); border-radius: 4px;">';
+  html += Object.entries(details).map(([key, value]) => {
+    if (value === undefined || value === null) return '';
+    return `<div style="display: flex; justify-content: space-between; font-size: 12px;">
+              <span style="color: #ccc;">${key}</span>
+              <span style="color: white; font-weight: 500;">${value}</span>
+            </div>`;
+  }).join('');
+  html += '</div>';
+
+  if (skill.description) {
+    html += `
+      <div style="color: #ccc; font-size: 11px; margin-top: 8px; font-style: italic; border-top: 1px solid #444; padding-top: 6px;">
+        ${skill.description}
+      </div>
+    `;
+  }
+
+  return html;
 }
 
 /**

@@ -15,7 +15,14 @@ export const testEnemies: Combatant[] = [
     id: 'goblin-scout',
     name: '고블린 정찰병',
     level: 1,
-    gold: 0,
+    rewards: {
+      experience: 10,
+      gold: 5,
+      items: [
+        { id: 'health-potion', chance: 20, count: [1, 1] },
+        { id: 'herb-healing', chance: 30, count: [1, 2] },
+      ],
+    },
     type: 'normal',
     category: 'humanoid',
     isEnemy: true,
@@ -74,7 +81,13 @@ export const testEnemies: Combatant[] = [
     id: 'forest-wolf',
     name: '숲 늑대',
     level: 1,
-    gold: 0,
+    rewards: {
+      experience: 15,
+      gold: 8,
+      items: [
+        { id: 'leather-armor', chance: 5, count: [1, 1] },
+      ],
+    },
     type: 'normal',
     category: 'beast',
     isEnemy: true,

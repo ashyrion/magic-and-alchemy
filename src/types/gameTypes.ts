@@ -25,7 +25,7 @@ export interface Stats {
   lightningResist: number; // 번개 저항
   poisonResist: number;  // 독 저항
 
-  [key: string]: number; // 기타 스탯
+  [key: string]: number | undefined; // 기타 스탯
 }
 
 export interface BaseCharacter {

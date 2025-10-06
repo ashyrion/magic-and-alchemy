@@ -10,9 +10,11 @@ import { useInventoryStore } from './store/inventoryStore';
 import { useBattleStore } from './store/battleStore';
 import { useDungeonStore } from './store/dungeonStore';
 import { useGameStateStore } from './store/gameStateStore';
+import { useSkillEnhancementStore } from './store/skillEnhancementStore';
 import { useAlchemyStore } from './stores/alchemyStore';
-import { testCharacter, testItems, testMaterials, testSkills } from './data/gameData';
+import { testCharacter, testItems, testMaterials } from './data/gameData';
 import { generateEnhancedItems, generateEnhancedItem } from './utils/itemGenerator';
+import type { Skill, Item } from './types/gameTypes';
 import './App.css';
 
 function App() {
@@ -51,6 +53,140 @@ function App() {
   // const startInitialBattle = () => {
   //   // 초기 전투는 던전에서만 시작하도록 변경
   // };
+
+  // 스킬 강화 시스템 초기화 함수
+  const initializeSkillEnhancementSystem = () => {
+    const gameStore = useGameStore.getState();
+    const enhancementStore = useSkillEnhancementStore.getState();
+    
+    // 기본 스킬 6개 정의 (0단계에서 시작)
+    const starterSkills: Skill[] = [
+      {
+        id: 'skill-fireball',
+        name: '파이어볼',
+        type: 'elemental',
+        element: 'fire',
+        category: 'offensive',
+        power: 12,
+        cost: 12,
+        cooldown: 3,
+        targetType: 'enemy',
+        range: 4,
+        accuracy: 90,
+        effects: [],
+        icon: '🔥',
+        description: '화염구를 발사하여 적에게 화상을 입힙니다.'
+      },
+      {
+        id: 'skill-ice-shard',
+        name: '아이스 샤드',
+        type: 'elemental',
+        element: 'ice',
+        category: 'offensive',
+        power: 10,
+        cost: 10,
+        cooldown: 3,
+        targetType: 'enemy',
+        range: 3,
+        accuracy: 85,
+        effects: [],
+        icon: '🧊',
+        description: '얼음 조각을 발사하여 동상 효과를 줍니다.'
+      },
+      {
+        id: 'skill-lightning-bolt',
+        name: '라이트닝 볼트',
+        type: 'elemental',
+        element: 'lightning',
+        category: 'offensive',
+        power: 14,
+        cost: 14,
+        cooldown: 4,
+        targetType: 'enemy',
+        range: 5,
+        accuracy: 80,
+        effects: [],
+        icon: '⚡',
+        description: '번개를 발사하여 감전 효과를 줍니다.'
+      },
+      {
+        id: 'skill-poison-dart',
+        name: '포이즌 다트',
+        type: 'elemental',
+        element: 'poison',
+        category: 'offensive',
+        power: 8,
+        cost: 8,
+        cooldown: 2,
+        targetType: 'enemy',
+        range: 4,
+        accuracy: 90,
+        effects: [],
+        icon: '☠️',
+        description: '독침을 발사하여 지속 독 데미지를 줍니다.'
+      },
+      {
+        id: 'skill-heal',
+        name: '힐',
+        type: 'heal',
+        element: 'light',
+        category: 'support',
+        power: 20,
+        cost: 12,
+        cooldown: 3,
+        targetType: 'ally',
+        range: 3,
+        accuracy: 100,
+        effects: [],
+        icon: '💚',
+        description: '체력을 회복시킵니다.'
+      },
+      {
+        id: 'skill-life-drain',
+        name: '라이프 드레인',
+        type: 'elemental',
+        element: 'dark',
+        category: 'offensive',
+        power: 8,
+        cost: 10,
+        cooldown: 3,
+        targetType: 'enemy',
+        range: 3,
+        accuracy: 85,
+        effects: [],
+        icon: '🩸',
+        description: '생명력을 흡수하여 자신을 회복시킵니다.'
+      }
+    ];
+    
+    // 스킬 강화 시스템에 0단계(미해금) 상태로 등록
+    starterSkills.forEach((skill) => {
+      enhancementStore.unlockBaseSkill(skill.id);
+    });
+    
+    // 초기 스킬 강화용 재료 (파이어볼만 해금 가능)
+    const starterMaterials: Item[] = [
+      { id: 'essence-fragment', name: '에센스 파편', type: 'material', weight: 0.1, icon: '✨', description: '약한 마력이 깃든 작은 파편', rarity: 'common', stats: {}, effects: [] },
+      { id: 'bone-dust', name: '뼈 가루', type: 'material', weight: 0.1, icon: '🦴', description: '갈아서 만든 몬스터의 뼈 가루', rarity: 'common', stats: {}, effects: [] }
+    ];
+
+    // 파이어볼 강화용 재료 제공 (에센스 파편 3개, 뼈 가루 1개)
+    for (let i = 0; i < 3; i++) {
+      addMaterial(starterMaterials[0]);
+    }
+    for (let i = 0; i < 1; i++) {
+      addMaterial(starterMaterials[1]);
+    }
+    
+    // 골드 추가 (시작 자금)
+    gameStore.addGold(2000);
+    
+    console.log('✅ 스킬 강화 시스템 초기화 완료!');
+    console.log('🔥 기본 스킬 6개 추가 (0단계 미해금 상태)');
+    console.log('🎯 파이어볼만 해금 가능한 화염 재료 제공');
+    console.log('💰 골드 5,000 추가');
+    console.log('📦 나머지 재료는 파밍으로 획득하세요!');
+  };
 
   // 초기화 실행 (중복 방지)
   useEffect(() => {
@@ -98,12 +234,7 @@ function App() {
       }
     });
 
-    // 스킬 추가 및 기본 스킬 장착
-    testSkills.forEach(skill => gameStore.addSkill(skill));
-    
-    // 기본 스킬들을 장착 (처음 4개 스킬)
-    const basicSkills = testSkills.slice(0, 4);
-    basicSkills.forEach(skill => gameStore.equipSkill(skill));
+    // testSkills 사용 안함 - 스킬 강화 시스템만 사용
 
     // 기본 장비 장착 (레벨 1에서 장착 가능한 장비들)
     const level1Items = testItems.filter(item => !item.requiredLevel || item.requiredLevel <= 1);
@@ -139,6 +270,9 @@ function App() {
 
     // 연금술 시스템 초기화
     initializeAlchemy();
+
+    // 🔥 스킬 강화 시스템 초기화
+    initializeSkillEnhancementSystem();
 
     // 던전 초기화는 하지 않음 (마을에서 시작)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -196,5 +330,3 @@ function App() {
 }
 
 export default App;
-
-

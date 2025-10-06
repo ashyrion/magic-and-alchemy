@@ -3,6 +3,28 @@ import { Card, Button, Slot } from '../common';
 import type { Skill } from '../../types/gameTypes';
 import { useGameStore } from '../../store/gameStore';
 
+const getSkillTypeEmoji = (skill?: Skill | null) => {
+  if (!skill) return '❓';
+  if (skill.icon) return skill.icon;
+  if (skill.id.includes('fireball')) return '🔥';
+  if (skill.id.includes('flame') || skill.id.includes('fire')) return '🔥';
+  if (skill.id.includes('ice') || skill.id.includes('frost')) return '🧊';
+  if (skill.id.includes('lightning') || skill.id.includes('thunder')) return '⚡';
+  if (skill.id.includes('poison') || skill.id.includes('toxic')) return '☠️';
+  if (skill.id.includes('heal') || skill.id.includes('purify')) return '💚';
+  if (skill.id.includes('life-drain') || skill.id.includes('weaken')) return '🩸';
+  switch (skill.type) {
+    case 'magic': return '🔮';
+    case 'alchemy': return '⚗️';
+    case 'physical': return '⚔️';
+    case 'elemental': return '✨';
+    case 'heal': return '💚';
+    case 'buff': return '🌟';
+    case 'debuff': return '💔';
+    default: return '❓';
+  }
+};
+
 interface SkillSlotProps {
   skill: Skill | null;
   index: number;
@@ -11,19 +33,6 @@ interface SkillSlotProps {
 }
 
 const SkillSlot = ({ skill, index, disabled, onClick }: SkillSlotProps) => {
-  const getSkillTypeEmoji = (type?: Skill['type']) => {
-    switch (type) {
-      case 'magic':
-        return '🔮';
-      case 'alchemy':
-        return '⚗️';
-      case 'physical':
-        return '⚔️';
-      default:
-        return '❓';
-    }
-  };
-
   return (
     <Slot
       size="lg"
@@ -36,10 +45,19 @@ const SkillSlot = ({ skill, index, disabled, onClick }: SkillSlotProps) => {
           {/* 상단: 아이콘과 이름 */}
           <div className="flex flex-col items-center flex-grow justify-center">
             <div className="text-xl mb-1">
-              {getSkillTypeEmoji(skill.type)}
+              {getSkillTypeEmoji(skill)}
             </div>
             <div className="text-xs text-center font-medium leading-tight" title={skill.name}>
               {skill.name}
+              {/* 강화 단계 표시 */}
+              {skill.id.includes('-tier-') && (
+                <div className="text-xs text-yellow-400 mt-0.5">
+                  ★ {skill.id.includes('-tier-5') ? '5단계' : 
+                      skill.id.includes('-tier-4') ? '4단계' :
+                      skill.id.includes('-tier-3') ? '3단계' :
+                      skill.id.includes('-tier-2') ? '2단계' : '1단계'}
+                </div>
+              )}
             </div>
           </div>
           
@@ -51,10 +69,18 @@ const SkillSlot = ({ skill, index, disabled, onClick }: SkillSlotProps) => {
             <div className={`text-xs px-1.5 py-0.5 rounded text-center w-full ${
               skill.type === 'magic' ? 'bg-blue-900 text-blue-200' : 
               skill.type === 'physical' ? 'bg-red-900 text-red-200' : 
+              skill.type === 'elemental' ? 'bg-purple-900 text-purple-200' :
+              skill.type === 'heal' ? 'bg-green-900 text-green-200' :
+              skill.type === 'buff' ? 'bg-yellow-900 text-yellow-200' :
+              skill.type === 'debuff' ? 'bg-gray-900 text-gray-200' :
               'bg-purple-900 text-purple-200'
             }`}>
               {skill.type === 'magic' ? '마법' : 
-               skill.type === 'physical' ? '물리' : '연금술'}
+               skill.type === 'physical' ? '물리' : 
+               skill.type === 'elemental' ? '원소' :
+               skill.type === 'heal' ? '치유' :
+               skill.type === 'buff' ? '버프' :
+               skill.type === 'debuff' ? '디버프' : '연금술'}
             </div>
           </div>
         </div>
@@ -76,9 +102,11 @@ interface SkillPanelProps {
 }
 
 export const SkillPanel = ({ disabled = false, onSkillsChange }: SkillPanelProps) => {
-  const learnedSkills = useGameStore((state) => state.learnedSkills);
   const equippedSkills = useGameStore((state) => state.equippedSkills);
-  const { equipSkill, unequipSkill } = useGameStore();
+  const { equipSkill, unequipSkill, getAvailableSkills } = useGameStore();
+  
+  // 강화된 스킬들을 포함한 전체 사용 가능한 스킬 목록
+  const availableSkills = getAvailableSkills();
   const [error, setError] = useState<string | null>(null);
 
   const handleSkillClick = (skill: Skill) => {
@@ -155,20 +183,11 @@ export const SkillPanel = ({ disabled = false, onSkillsChange }: SkillPanelProps
         <div className="space-y-2">
           <div className="text-sm font-medium text-gray-400">보유 스킬</div>
           <div className="space-y-2">
-            {learnedSkills.length > 0 ? (
-              learnedSkills.map((skill) => {
+            {availableSkills.length > 0 ? (
+              availableSkills.map((skill) => {
                 const isSelected = equippedSkills.some(s => s.id === skill.id);
                 const isCompatible = isSkillCompatible(skill);
                 const buttonDisabled = disabled || (!isCompatible && !isSelected);
-                
-                const getSkillTypeEmoji = (type: Skill['type']) => {
-                  switch (type) {
-                    case 'magic': return '🔮';
-                    case 'alchemy': return '⚗️';
-                    case 'physical': return '⚔️';
-                    default: return '❓';
-                  }
-                };
 
                 return (
                   <Button
@@ -184,7 +203,7 @@ export const SkillPanel = ({ disabled = false, onSkillsChange }: SkillPanelProps
                   >
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center space-x-3">
-                        <span className="text-lg">{getSkillTypeEmoji(skill.type)}</span>
+                        <span className="text-lg">{getSkillTypeEmoji(skill)}</span>
                         <div className="flex flex-col items-start">
                           <span className="font-medium text-sm">{skill.name}</span>
                           {skill.effects.some(effect => effect.duration > 0) && (
@@ -213,7 +232,10 @@ export const SkillPanel = ({ disabled = false, onSkillsChange }: SkillPanelProps
               })
             ) : (
               <div className="text-center text-gray-500 py-4">
-                습득한 스킬이 없습니다
+                사용 가능한 스킬이 없습니다
+                <div className="text-xs mt-2">
+                  연금술 작업장에서 스킬을 강화해보세요!
+                </div>
               </div>
             )}
           </div>

@@ -14,6 +14,12 @@ export default [
   },
   js.configs.recommended,
   {
+    files: ['**/*.js'],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsParser,

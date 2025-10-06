@@ -1,7 +1,9 @@
 import { create } from 'zustand'
-import type { BattleState, BattleLog, Combatant } from '../types/battle'
-import type { Skill, BattleSkillState } from '../types/gameTypes'
-import { statusEffectsData, skillStatusEffects } from '../data/statusEffects'
+import type { BattleState, BattleLog, Combatant } from '../types/battle';
+import type { Skill, BattleSkillState, Item } from '../types/gameTypes';
+import { statusEffectsData, skillStatusEffects } from '../data/statusEffects';
+import { getItemById } from '../data/items';
+import { useInventoryStore } from './inventoryStore';
 
 interface BattleResult {
   victory: boolean;
@@ -397,10 +399,27 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
       get().addLog(`${enemy.name}을(를) 처치했습니다!`, 'system')
       
       // 보상 계산
+      const droppedItems: string[] = [];
+      if (enemy.rewards?.items) {
+        const inventoryStore = useInventoryStore.getState();
+        enemy.rewards.items.forEach(drop => {
+          if (Math.random() * 100 < drop.chance) {
+            const item = getItemById(drop.id);
+            if (item) {
+              const count = Math.floor(Math.random() * (drop.count[1] - drop.count[0] + 1)) + drop.count[0];
+              for (let i = 0; i < count; i++) {
+                inventoryStore.addItem(item);
+                droppedItems.push(item.name);
+              }
+            }
+          }
+        });
+      }
+
       const rewards = {
-        experience: Math.floor((enemy.level || 1) * 10 + Math.random() * 20),
-        gold: Math.floor((enemy.level || 1) * 5 + Math.random() * 10),
-        items: [] // TODO: 나중에 아이템 드롭 시스템 추가
+        experience: enemy.rewards?.experience || Math.floor((enemy.level || 1) * 10 + Math.random() * 20),
+        gold: enemy.rewards?.gold || Math.floor((enemy.level || 1) * 5 + Math.random() * 10),
+        items: droppedItems,
       };
       
       get().endBattle(true, enemy, rewards)
@@ -634,10 +653,27 @@ export const useBattleStore = create<BattleStore>((set, get) => ({
         get().addLog(`${enemy.name}을(를) 처치했습니다!`, 'system')
         
         // 보상 계산
+        const droppedItems: string[] = [];
+        if (enemy.rewards?.items) {
+          const inventoryStore = useInventoryStore.getState();
+          enemy.rewards.items.forEach(drop => {
+            if (Math.random() * 100 < drop.chance) {
+              const item = getItemById(drop.id);
+              if (item) {
+                const count = Math.floor(Math.random() * (drop.count[1] - drop.count[0] + 1)) + drop.count[0];
+                for (let i = 0; i < count; i++) {
+                  inventoryStore.addItem(item);
+                  droppedItems.push(item.name);
+                }
+              }
+            }
+          });
+        }
+
         const rewards = {
-          experience: Math.floor((enemy.level || 1) * 10 + Math.random() * 20),
-          gold: Math.floor((enemy.level || 1) * 5 + Math.random() * 10),
-          items: [] // TODO: 나중에 아이템 드롭 시스템 추가
+          experience: enemy.rewards?.experience || Math.floor((enemy.level || 1) * 10 + Math.random() * 20),
+          gold: enemy.rewards?.gold || Math.floor((enemy.level || 1) * 5 + Math.random() * 10),
+          items: droppedItems,
         };
         
         get().endBattle(true, enemy, rewards)

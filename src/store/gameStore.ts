@@ -4,6 +4,7 @@ import type { Character, Item, SavePoint, Skill, EquipmentSlot, Stats } from '..
 import type { GameState } from './types';
 import { globalStoreEvents } from './types/events';
 import { useInventoryStore } from './inventoryStore';
+import { useSkillEnhancementStore } from './skillEnhancementStore';
 import { calculateEquipmentStats } from '../utils/equipmentUtils';
 import { calculateFinalStats } from '../utils/statCalculations';
 
@@ -32,6 +33,14 @@ interface GameStore extends GameState {
   updateCharacterStats: (overrideStats?: Partial<Stats>) => void;
   healCharacter: (hpAmount: number, mpAmount: number) => void;
   calculateTotalStats: () => Character['stats'];
+  
+  // 스킬 강화 시스템 연동
+  getPlayerSkills: () => Skill[];
+  unlockBaseSkill: (baseSkillId: string) => void;
+  getAvailableSkills: () => Skill[];
+  
+  // 개발용
+  unlockBasicSkillsForTesting: () => void;
 }
 
 export const useGameStore = create<GameStore>()(
@@ -71,11 +80,63 @@ export const useGameStore = create<GameStore>()(
           };
         }),
       
+      // 스킬 강화 시스템 연동 메서드들
+      getPlayerSkills: () => {
+        const enhancementStore = useSkillEnhancementStore.getState();
+        return enhancementStore.getPlayerSkills();
+      },
+      
+      unlockBaseSkill: (baseSkillId: string) => {
+        const enhancementStore = useSkillEnhancementStore.getState();
+        enhancementStore.unlockBaseSkill(baseSkillId);
+        
+        // learnedSkills에도 추가 (현재 최고 단계 스킬)
+        const currentSkill = enhancementStore.getCurrentSkill(baseSkillId);
+        if (currentSkill) {
+          get().addSkill(currentSkill);
+        }
+      },
+      
+      getAvailableSkills: () => {
+        // 스킬 강화 시스템에서 현재 사용 가능한 스킬들 가져오기
+        const enhancementStore = useSkillEnhancementStore.getState();
+        const enhancedSkills = enhancementStore.getPlayerSkills();
+        
+        // 기존 learnedSkills와 강화된 스킬들을 합치되 중복 제거
+        const { learnedSkills } = get();
+        const allSkills = [...learnedSkills];
+        
+        enhancedSkills.forEach(skill => {
+          // 같은 baseSkillId를 가진 기존 스킬이 있으면 교체, 없으면 추가
+          const baseId = skill.id.split('-tier-')[0];
+          const existingIndex = allSkills.findIndex(s => s.id.startsWith(baseId));
+          
+          if (existingIndex >= 0) {
+            allSkills[existingIndex] = skill; // 더 높은 단계로 교체
+          } else {
+            allSkills.push(skill); // 새 스킬 추가
+          }
+        });
+        
+        return allSkills;
+      },
+      
       equipSkill: (skill: Skill) => {
         const { equippedSkills } = get();
         
-        // 이미 장착된 스킬인지 확인
-        if (equippedSkills.find(s => s.id === skill.id)) return false;
+        // 이미 장착된 스킬인지 확인 (기본 스킬 ID로 체크)
+        const baseSkillId = skill.id.split('-tier-')[0];
+        const existingSkill = equippedSkills.find(s => s.id.startsWith(baseSkillId));
+        
+        if (existingSkill) {
+          // 같은 기본 스킬의 더 높은 단계로 교체
+          set(state => ({
+            equippedSkills: state.equippedSkills.map(s => 
+              s.id.startsWith(baseSkillId) ? skill : s
+            )
+          }));
+          return true;
+        }
         
         // 최대 4개 제한
         if (equippedSkills.length >= 4) return false;
@@ -218,27 +279,23 @@ export const useGameStore = create<GameStore>()(
           if (!state.character) return state;
 
           // 현재 HP/MP 보존
-          const currentHp = state.character.stats.currentHP;
-          const currentMp = state.character.stats.currentMP;
+          const currentHp = state.character.stats.hp;
+          const currentMp = state.character.stats.mp;
 
           const totalStats = get().calculateTotalStats();
           
           // 현재 HP/MP를 유지 (최대값을 넘지 않도록 제한)
-          const maxHP = totalStats.maxHP || totalStats.maxHp || 100;
-          const maxMP = totalStats.maxMP || totalStats.maxMp || 50;
+          const maxHp = totalStats.maxHp || 100;
+          const maxMp = totalStats.maxMp || 50;
           
           const preservedStats = {
             ...totalStats,
             // HP 계산
-            hp: typeof currentHp === 'number' ? Math.min(currentHp, maxHP) : maxHP,
-            currentHP: typeof currentHp === 'number' ? Math.min(currentHp, maxHP) : maxHP,
-            maxHP: maxHP,
-            maxHp: maxHP,
-            // MP 계산 - 현재 MP는 기본값을 유지, 최대 MP는 장비 보너스 포함
-            mp: typeof currentMp === 'number' ? Math.min(currentMp, maxMP) : (state.character.stats.mp || 80),
-            currentMP: typeof currentMp === 'number' ? Math.min(currentMp, maxMP) : (state.character.stats.mp || 80),
-            maxMP: maxMP,
-            maxMp: maxMP
+            hp: typeof currentHp === 'number' ? Math.min(currentHp, maxHp) : maxHp,
+            maxHp: maxHp,
+            // MP 계산
+            mp: typeof currentMp === 'number' ? Math.min(currentMp, maxMp) : (state.character.stats.mp || 80),
+            maxMp: maxMp
           };
 
           const mergedStats = overrideStats
@@ -284,20 +341,20 @@ export const useGameStore = create<GameStore>()(
           if (!state.character) return state;
           
           const newHP = Math.min(
-            state.character.stats.currentHP + hpAmount,
-            state.character.stats.maxHP
+            state.character.stats.hp + hpAmount,
+            state.character.stats.maxHp
           );
           const newMP = Math.min(
-            state.character.stats.currentMP + mpAmount,
-            state.character.stats.maxMP
+            state.character.stats.mp + mpAmount,
+            state.character.stats.maxMp
           );
 
           const updatedCharacter = {
             ...state.character,
             stats: {
               ...state.character.stats,
-              currentHP: newHP,
-              currentMP: newMP
+              hp: newHP,
+              mp: newMP
             }
           };
 
@@ -325,6 +382,188 @@ export const useGameStore = create<GameStore>()(
         finalStats.mp = baseStats.mp || finalStats.mp;
         
         return finalStats;
+      },
+      
+      // 개발용: 기본 스킬들을 해금하는 함수
+      unlockBasicSkillsForTesting: () => {
+        const state = get();
+        const { unlockBaseSkill, addGold, addSkill, learnedSkills } = state;
+        
+        // 이미 스킬이 있는지 확인
+        if (learnedSkills.length >= 6) {
+          console.log('⚠️ 이미 스킬이 해금되어 있습니다. 초기화 후 다시 시도하세요.');
+          return;
+        }
+        
+        console.log('🚀 기본 스킬 해금 시작...');
+        
+        // 간단한 더미 스킬 데이터로 먼저 추가
+        const basicSkills = [
+          {
+            id: 'skill-fireball',
+            name: '파이어발',
+            type: 'elemental',
+            element: 'fire',
+            category: 'offensive',
+            power: 12,
+            cost: 12,
+            cooldown: 3,
+            targetType: 'enemy',
+            range: 4,
+            accuracy: 90,
+            effects: [],
+            icon: '🔥',
+            description: '화염구를 발사하여 적에게 화상을 입힙니다.'
+          },
+          {
+            id: 'skill-ice-shard',
+            name: '아이스 샤드',
+            type: 'elemental',
+            element: 'ice',
+            category: 'offensive', 
+            power: 10,
+            cost: 10,
+            cooldown: 3,
+            targetType: 'enemy',
+            range: 3,
+            accuracy: 85,
+            effects: [],
+            icon: '🧊',
+            description: '얼음 조각을 발사하여 동상 효과를 주어요.'
+          },
+          {
+            id: 'skill-lightning-bolt',
+            name: '라이트닝 볼트',
+            type: 'elemental',
+            element: 'lightning',
+            category: 'offensive',
+            power: 14,
+            cost: 14,
+            cooldown: 4,
+            targetType: 'enemy',
+            range: 5,
+            accuracy: 80,
+            effects: [],
+            icon: '⚡',
+            description: '번개를 발사하여 감전 효과를 주어요.'
+          },
+          {
+            id: 'skill-poison-dart',
+            name: '포이즊 다트',
+            type: 'elemental',
+            element: 'poison',
+            category: 'offensive',
+            power: 8,
+            cost: 8,
+            cooldown: 2,
+            targetType: 'enemy',
+            range: 4,
+            accuracy: 90,
+            effects: [],
+            icon: '☠️',
+            description: '독침을 발사하여 지속 독 데미지를 죾어요.'
+          },
+          {
+            id: 'skill-heal',
+            name: '힐',
+            type: 'heal',
+            element: 'light',
+            category: 'support',
+            power: 20,
+            cost: 12,
+            cooldown: 3,
+            targetType: 'ally',
+            range: 3,
+            accuracy: 100,
+            effects: [],
+            icon: '💚',
+            description: '체력을 회복시켜요.'
+          },
+          {
+            id: 'skill-life-drain',
+            name: '라이프 드레인',
+            type: 'elemental',
+            element: 'dark',
+            category: 'offensive',
+            power: 8,
+            cost: 10,
+            cooldown: 3,
+            targetType: 'enemy',
+            range: 3,
+            accuracy: 85,
+            effects: [],
+            icon: '🩸',
+            description: '생명력을 흡수하여 자신을 회복시켜요.'
+          }
+        ];
+        
+        // learnedSkills에 추가
+        basicSkills.forEach(skill => {
+          try {
+            addSkill(skill as Skill);
+            console.log(`✅ ${skill.name} 추가됨`);
+          } catch (error) {
+            console.error(`❌ ${skill.name} 추가 실패:`, error);
+          }
+        });
+        
+        // 스킬 강화 시스템에도 등록
+        const basicSkillIds = basicSkills.map(s => s.id);
+        basicSkillIds.forEach(skillId => {
+          unlockBaseSkill(skillId);
+        });
+        
+        // 스킬 강화용 골드와 재료 지급
+        addGold(10000);
+        
+        // 인벤토리 스토어에 스킬 강화 재료 추가
+        const inventoryStore = useInventoryStore.getState();
+        const skillMaterials = [
+          // 화염 재료
+          { id: 'herb-fire-flower', name: '화염꽃', type: 'material', weight: 0.1, icon: '🌺🔥', description: '화염 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          { id: 'crystal-flame-essence', name: '화염 정수 결정', type: 'material', weight: 0.2, icon: '💎🔥', description: '고급 화염 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          // 냉기 재료
+          { id: 'herb-frost-leaf', name: '서리잎', type: 'material', weight: 0.1, icon: '🍃❄️', description: '냉기 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          { id: 'crystal-ice-essence', name: '얼음 정수 결정', type: 'material', weight: 0.2, icon: '💎❄️', description: '고급 냉기 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          // 번개 재료
+          { id: 'herb-thunder-grass', name: '천둥풀', type: 'material', weight: 0.1, icon: '🌿⚡', description: '번개 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          { id: 'crystal-lightning-essence', name: '번개 정수 결정', type: 'material', weight: 0.2, icon: '💎⚡', description: '고급 번개 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          // 독 재료
+          { id: 'herb-toxic-mushroom', name: '맹독버섯', type: 'material', weight: 0.1, icon: '🍄☠️', description: '독 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          { id: 'crystal-poison-essence', name: '독 정수 결정', type: 'material', weight: 0.2, icon: '💎☠️', description: '고급 독 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          // 빛 재료
+          { id: 'herb-moonlight-petal', name: '달빛 꽃잎', type: 'material', weight: 0.1, icon: '🌸🌙', description: '빛 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          { id: 'crystal-light-essence', name: '빛 정수 결정', type: 'material', weight: 0.2, icon: '💎✨', description: '고급 빛 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          // 어둠 재료
+          { id: 'herb-shadow-root', name: '그림자뿌리', type: 'material', weight: 0.1, icon: '🌑🌿', description: '어둠 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] },
+          { id: 'crystal-dark-essence', name: '어둠 정수 결정', type: 'material', weight: 0.2, icon: '💎🌑', description: '고급 어둠 스킬 강화 재료', rarity: 'common', stats: {}, effects: [] }
+        ];
+        
+        // 각 재료를 10개씩 추가
+        skillMaterials.forEach(material => {
+          for (let i = 0; i < 10; i++) {
+            inventoryStore.addItem(material as Item);
+          }
+        });
+        
+        console.log('✅ 기본 스킬과 강화 재료가 지급되었습니다!', { gold: 10000, materials: skillMaterials.length });
+      },
+      
+      // 개발용: 모든 스킬과 진행도 초기화
+      resetAllSkills: () => {
+        const enhancementStore = useSkillEnhancementStore.getState();
+        
+        // 기존 스킬 시스템 초기화
+        set((state) => ({
+          ...state,
+          learnedSkills: [],
+          equippedSkills: []
+        }));
+        
+        // 스킬 강화 시스템 초기화
+        enhancementStore.resetProgress();
+        
+        console.log('🔄 모든 스킬이 초기화되었습니다!');
       },
     }),
     {
