@@ -12,9 +12,8 @@ import { useDungeonStore } from './store/dungeonStore';
 import { useGameStateStore } from './store/gameStateStore';
 import { useSkillEnhancementStore } from './store/skillEnhancementStore';
 import { useAlchemyStore } from './stores/alchemyStore';
-import { testCharacter, testItems, testMaterials } from './data/gameData';
-import { generateEnhancedItems, generateEnhancedItem } from './utils/itemGenerator';
-import type { Skill, Item } from './types/gameTypes';
+import { testCharacter } from './data/gameData';
+import type { Skill } from './types/gameTypes';
 import './App.css';
 
 function App() {
@@ -23,7 +22,7 @@ function App() {
   
   // 스토어에서 필요한 액션 가져오기
   const setCharacter = useGameStore((state) => state.setCharacter);
-  const { addItem, addMaterial } = useInventoryStore();
+
   const initializeAlchemy = useAlchemyStore((state) => state.initializeAlchemy);
   
   // 전투 상태 구독
