@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Combatant } from '../../types/battle';
+import { getItemById } from '../../data/items'; // getItemById 임포트
 
 interface BattleResultProps {
   victory: boolean;
@@ -7,7 +8,7 @@ interface BattleResultProps {
   rewards: {
     experience: number;
     gold: number;
-    items: string[];
+    items: { id: string; count: number }[]; // 타입 수정
   };
   onClose: () => void;
 }
@@ -90,11 +91,14 @@ export const BattleResult: React.FC<BattleResultProps> = ({
                     <span className="text-white font-semibold">획득 아이템</span>
                   </div>
                   <div className="space-y-1">
-                    {rewards.items.map((item, index) => (
-                      <div key={index} className="text-purple-300 text-sm pl-6">
-                        • {item}
-                      </div>
-                    ))}
+                    {rewards.items.map((item, index) => {
+                      const itemInfo = getItemById(item.id);
+                      return (
+                        <div key={index} className="text-purple-300 text-sm pl-6">
+                          • {itemInfo ? `${itemInfo.name} x${item.count}` : `${item.id} x${item.count}`}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
