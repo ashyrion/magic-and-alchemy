@@ -1,254 +1,279 @@
 import React, { useState } from 'react';
-import { useAlchemyStore } from '../stores/alchemyStore';
-import { useInventoryStore } from '../store/inventoryStore';
-import './AlchemyWorkshop.css';
-
-// 재료 ID를 실제 이름으로 변환하는 헬퍼 함수
-const getMaterialName = (materialId: string) => {
-  switch (materialId) {
-    case 'mat-1': return '붉은 허브';
-    case 'mat-2': return '파란 크리스탈';
-    case 'mat-3': return '황금 가루';
-    default: return materialId;
-  }
-};
+import { useNewAlchemyStore } from '../stores/newAlchemyStore';
+import { alchemyMaterials } from '../data/alchemyMaterials';
+import type { ItemRarity } from '../stores/newAlchemyStore';
+import './AlchemyWorkshop.stable.css';
 
 const AlchemyWorkshop: React.FC = () => {
   const {
-    level,
-    experience,
-    recentResults,
+    materials,
+    craftPotion,
+    upgradeItem,
+    upgradeSkill,
     getAvailableRecipes,
-    attemptCrafting
-  } = useAlchemyStore();
+    lastCraftResult
+  } = useNewAlchemyStore();
 
-  const { materials } = useInventoryStore();
-  
-  // 재료 상태 변화에 따른 실시간 업데이트를 위한 변수들
-  const materialCounts = materials.reduce((acc, material) => {
-    acc[material.id] = (acc[material.id] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-  const [craftingResult, setCraftingResult] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'craft' | 'upgrade-item' | 'upgrade-skill'>('craft');
+  const [selectedItem, setSelectedItem] = useState<{name: string; rarity: ItemRarity; [key: string]: unknown} | null>(null);
 
+  // 사용 가능한 레시피들 가져오기
   const availableRecipes = getAvailableRecipes();
-  const selectedRecipe = selectedRecipeId 
-    ? availableRecipes.find(r => r.id === selectedRecipeId) 
-    : null;
 
-  const handleCraft = () => {
-    if (!selectedRecipeId) return;
-    
-    const result = attemptCrafting(selectedRecipeId);
-    let message = result.message;
-    
-    // 성공 시 결과물 정보 추가
-    if (result.success && result.results.length > 0) {
-      const resultNames = result.results.map(r => {
-        const getResultName = (id: string) => {
-          switch (id) {
-            case 'healing-potion-basic': return '기본 치유 물약';
-            case 'mana-potion-basic': return '기본 마나 물약';
-            case 'healing-potion-enhanced': return '강화 치유 물약';
-            case 'super-potion': return '만능 물약';
-            case 'fire-weapon-enhancement': return '화염 무기 강화';
-            case 'alchemy-mastery': return '연금술 숙련 스킬';
-            default: return id;
-          }
-        };
-        return `${getResultName(r.id)} ${r.count}개`;
-      });
-      message += ` (획득: ${resultNames.join(', ')})`;
-    }
-    
-    setCraftingResult(message);
-    
-    // 3초 후 메시지 제거
-    setTimeout(() => {
-      setCraftingResult(null);
-    }, 3000);
+  const handleCraft = (recipeId: string) => {
+    const result = craftPotion(recipeId);
+    console.log('Craft result:', result);
   };
 
-  const getExperienceToNextLevel = () => {
-    const nextLevelExp = level * 100;
-    return nextLevelExp - experience;
+  const handleUpgradeItem = (upgradeFrom: ItemRarity, upgradeTo: ItemRarity, useCatalyst = false) => {
+    if (!selectedItem) return;
+    
+    const result = upgradeItem(selectedItem, upgradeFrom, upgradeTo, useCatalyst);
+    console.log('Upgrade result:', result);
+  };
+
+  const handleUpgradeSkill = (skillId: string, currentTier: number, useCatalyst = false) => {
+    const result = upgradeSkill(skillId, currentTier, useCatalyst);
+    console.log('Skill upgrade result:', result);
   };
 
   return (
-    <div className="alchemy-workshop">
-      <div className="workshop-header">
-        <h2>연금술 작업실</h2>
-        <div className="alchemy-info">
-          <div className="level-info">
-            <span>레벨: {level}</span>
-            <span>경험치: {experience}</span>
-            <span>다음 레벨까지: {getExperienceToNextLevel()}</span>
-          </div>
-        </div>
+    <div className="simple-alchemy-container">
+      <h2 className="simple-alchemy-title">연금술 작업대</h2>
+      
+      <div className="simple-tabs">
+        <button 
+          className={`simple-tab-button ${activeTab === 'craft' ? 'active' : ''}`}
+          onClick={() => setActiveTab('craft')}
+        >
+          🧪 제작
+        </button>
+        <button 
+          className={`simple-tab-button ${activeTab === 'upgrade-item' ? 'active' : ''}`}
+          onClick={() => setActiveTab('upgrade-item')}
+        >
+          ⬆️ 아이템 강화
+        </button>
+        <button 
+          className={`simple-tab-button ${activeTab === 'upgrade-skill' ? 'active' : ''}`}
+          onClick={() => setActiveTab('upgrade-skill')}
+        >
+          🔧 스킬 강화
+        </button>
       </div>
 
-      <div className="workshop-content">
-        {/* 레시피 목록 */}
-        <div className="recipe-section">
-          <h3>사용 가능한 레시피</h3>
-          <div className="recipe-list horizontal-grid">
-            {availableRecipes.map(recipe => {
-              // 실시간으로 재료 충분 여부 확인
-              const canCraft = recipe.requiredMaterials.every(required => {
-                const ownedCount = materialCounts[required.materialId] || 0;
-                return ownedCount >= required.count;
-              });
-              
-              return (
-                <div 
-                  key={recipe.id}
-                  className={`recipe-item ${selectedRecipeId === recipe.id ? 'selected' : ''} ${
-                    !canCraft ? 'disabled' : ''
-                  }`}
-                  onClick={() => setSelectedRecipeId(recipe.id)}
-                >
-                <div className="recipe-name">{recipe.name}</div>
-                <div className="recipe-difficulty">
-                  {recipe.difficulty === 'basic' ? '초급' : 
-                   recipe.difficulty === 'intermediate' ? '중급' : 
-                   recipe.difficulty === 'advanced' ? '고급' : '마스터'}
-                </div>
-                <div className="recipe-success-rate">성공률: {recipe.successRate || 50}%</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 재료 인벤토리 */}
-        <div className="materials-inventory">
-          <h3>보유 재료</h3>
-          <div className="materials-list horizontal-grid">
-            {materials.map((material, index) => (
-              <div key={`material-${material.id}-${index}`} className="material-item">
-                <span className="material-name">{material.name}</span>
-                <span className="material-description">{material.description}</span>
+      <div className="simple-tab-content">
+        {activeTab === 'craft' && (
+          <div>
+            <div className="materials-display">
+              <h3 className="materials-title">보유 재료</h3>
+              <div className="materials-grid">
+                {alchemyMaterials.map(material => (
+                  <div key={material.id} className="material-item">
+                    <span className="material-name">{material.name}</span>
+                    <span className="material-count">{materials[material.id] || 0}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* 레시피 상세 정보 */}
-        <div className="recipe-details">
-          {selectedRecipe ? (
-            <div className="recipe-detail-content">
-              <h3>{selectedRecipe.name}</h3>
-              <p className="recipe-description">{selectedRecipe.description}</p>
+            <div className="simple-recipe-grid">
+              {availableRecipes.map((recipe) => {
+                const canCraft = recipe.materials.every((mat) => 
+                  (materials[mat.id] || 0) >= mat.count
+                );
+
+                return (
+                  <div 
+                    key={recipe.id} 
+                    className={`simple-recipe-card ${!canCraft ? 'unavailable' : ''}`}
+                  >
+                    <h4 className="recipe-name">{recipe.name}</h4>
+                    <p className="recipe-description">{recipe.description}</p>
+                    
+                    <div className="recipe-materials">
+                      {recipe.materials.map((mat) => {
+                        const material = alchemyMaterials.find(m => m.id === mat.id);
+                        const hasEnough = (materials[mat.id] || 0) >= mat.count;
+                        
+                        return (
+                          <span 
+                            key={mat.id} 
+                            className={`material-tag ${!hasEnough ? 'insufficient' : ''}`}
+                          >
+                            {material?.name || mat.id} x{mat.count}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {recipe.results && (
+                      <div className="recipe-effects">
+                        {recipe.results.map((result, idx) => (
+                          <div key={idx} className="effect-item">
+                            {result.type}: {result.id} x{result.count}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="action-buttons">
+                      <button 
+                        className="craft-button" 
+                        disabled={!canCraft}
+                        onClick={() => handleCraft(recipe.id)}
+                      >
+                        제작하기
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {availableRecipes.length === 0 && (
+              <div className="no-recipes-message">
+                아직 발견된 레시피가 없습니다. 몬스터를 처치해서 레시피를 발견해보세요!
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'upgrade-item' && (
+          <div>
+            <div className="upgrade-section">
+              <h3 className="upgrade-title">아이템 강화</h3>
               
-              <div className="required-materials">
-                <h4>필요한 재료:</h4>
-                {selectedRecipe.requiredMaterials.map(material => {
-                  const ownedCount = materialCounts[material.materialId] || 0;
-                  const hasEnough = ownedCount >= material.count;
+              <div className="upgrade-grid">
+                {(['normal', 'magic', 'rare'] as const).map(fromRarity => {
+                  const toRarity = fromRarity === 'normal' ? 'magic' : 
+                                   fromRarity === 'magic' ? 'rare' : 'unique' as ItemRarity;
                   
+                  const requirements = alchemyMaterials
+                    .slice(0, 3)
+                    .map(mat => ({ materialId: mat.id, count: 5 }));
+
+                  const canUpgrade = requirements.every(req => 
+                    (materials[req.materialId] || 0) >= req.count
+                  );
+
                   return (
-                    <div 
-                      key={material.materialId} 
-                      className={`material-requirement ${hasEnough ? 'sufficient' : 'insufficient'}`}
+                    <div key={fromRarity} className="upgrade-card">
+                      <div className="upgrade-type">
+                        {fromRarity} → {toRarity}
+                      </div>
+                      
+                      <div className="upgrade-requirements">
+                        <h4>필요 재료:</h4>
+                        {requirements.map(req => {
+                          const material = alchemyMaterials.find(m => m.id === req.materialId);
+                          const hasEnough = (materials[req.materialId] || 0) >= req.count;
+                          
+                          return (
+                            <div key={req.materialId} className="requirement-item">
+                              <span className="requirement-name">{material?.name}</span>
+                              <span className={`requirement-amount ${!hasEnough ? 'insufficient' : ''}`}>
+                                {materials[req.materialId] || 0} / {req.count}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="upgrade-success-rate">성공률: 75%</div>
+
+                      <button 
+                        className="upgrade-button"
+                        disabled={!canUpgrade || !selectedItem}
+                        onClick={() => handleUpgradeItem(fromRarity, toRarity)}
+                      >
+                        강화하기
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="materials-display">
+                <h4>테스트용 아이템 선택:</h4>
+                <div className="materials-grid">
+                  {(['normal', 'magic', 'rare'] as const).map(rarity => (
+                    <button
+                      key={rarity}
+                      className={`material-item ${selectedItem?.rarity === rarity ? 'selected' : ''}`}
+                      onClick={() => setSelectedItem({ name: `테스트 ${rarity} 아이템`, rarity })}
                     >
-                      <span className="material-name">{getMaterialName(material.materialId)}</span>
-                      <span className="material-count">
-                        {ownedCount} / {material.count}
-                      </span>
-                    </div>
-                  );
-                })}
+                      테스트 {rarity} 아이템
+                    </button>
+                  ))}
+                </div>
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="expected-results">
-                <h4>예상 결과:</h4>
-                {selectedRecipe.results.map((result, index) => {
-                  // 결과물 이름 매핑
-                  const getResultName = (id: string) => {
-                    switch (id) {
-                      case 'healing-potion-basic': return '기본 치유 물약';
-                      case 'mana-potion-basic': return '기본 마나 물약';
-                      case 'healing-potion-enhanced': return '강화 치유 물약';
-                      case 'super-potion': return '만능 물약';
-                      case 'fire-weapon-enhancement': return '화염 무기 강화';
-                      case 'alchemy-mastery': return '연금술 숙련 스킬';
-                      default: return id;
-                    }
-                  };
-                  
+        {activeTab === 'upgrade-skill' && (
+          <div>
+            <div className="upgrade-section">
+              <h3 className="upgrade-title">스킬 강화</h3>
+              
+              <div className="upgrade-grid">
+                {[1, 2, 3].map(tier => {
+                  const skillId = `test-skill-${tier}`;
+                  const requirements = alchemyMaterials
+                    .slice(tier - 1, tier + 2)
+                    .map(mat => ({ materialId: mat.id, count: tier * 3 }));
+
+                  const canUpgrade = requirements.every(req => 
+                    (materials[req.materialId] || 0) >= req.count
+                  );
+
                   return (
-                    <div key={index} className="result-item">
-                      <span className="result-name">{getResultName(result.id)}</span>
-                      <span className="result-chance">{result.chance}% 확률</span>
-                      <span className="result-count">{result.count}개</span>
+                    <div key={tier} className="upgrade-card">
+                      <div className="upgrade-type">
+                        스킬 티어 {tier} → {tier + 1}
+                      </div>
+                      
+                      <div className="upgrade-requirements">
+                        <h4>필요 재료:</h4>
+                        {requirements.map(req => {
+                          const material = alchemyMaterials.find(m => m.id === req.materialId);
+                          const hasEnough = (materials[req.materialId] || 0) >= req.count;
+                          
+                          return (
+                            <div key={req.materialId} className="requirement-item">
+                              <span className="requirement-name">{material?.name}</span>
+                              <span className={`requirement-amount ${!hasEnough ? 'insufficient' : ''}`}>
+                                {materials[req.materialId] || 0} / {req.count}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="upgrade-success-rate">성공률: {90 - tier * 10}%</div>
+
+                      <button 
+                        className="upgrade-button"
+                        disabled={!canUpgrade}
+                        onClick={() => handleUpgradeSkill(skillId, tier)}
+                      >
+                        업그레이드
+                      </button>
                     </div>
                   );
                 })}
               </div>
-
-              <button 
-                className="craft-button"
-                onClick={handleCraft}
-                disabled={!selectedRecipe.requiredMaterials.every(required => {
-                  const ownedCount = materialCounts[required.materialId] || 0;
-                  return ownedCount >= required.count;
-                })}
-              >
-                {selectedRecipe.requiredMaterials.every(required => {
-                  const ownedCount = materialCounts[required.materialId] || 0;
-                  return ownedCount >= required.count;
-                }) ? '제작하기' : '재료 부족'}
-              </button>
             </div>
-          ) : (
-            <div className="no-recipe-selected">
-              <p>레시피를 선택하세요</p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* 제작 결과 메시지 */}
-      {craftingResult && (
-        <div className="crafting-result">
-          {craftingResult}
+      {lastCraftResult && (
+        <div className="materials-display">
+          <h4>결과: {lastCraftResult}</h4>
         </div>
       )}
-
-      {/* 최근 결과 */}
-      <div className="recent-results">
-        <h3>최근 제작 결과</h3>
-        <div className="results-list">
-          {recentResults.slice(0, 5).map((result, index) => {
-            // 레시피 이름 매핑
-            const getRecipeName = (id: string) => {
-              switch (id) {
-                case 'basic-healing-potion': return '기본 치유 물약';
-                case 'basic-mana-potion': return '기본 마나 물약';
-                case 'enhanced-healing-potion': return '강화 치유 물약';
-                case 'fire-enhancement': return '화염 강화';
-                case 'experimental-super-potion': return '실험용 만능 물약';
-                default: return id;
-              }
-            };
-            
-            return (
-              <div 
-                key={index} 
-                className={`result-entry ${result.success ? 'success' : 'failure'}`}
-              >
-                <span className="result-recipe">{getRecipeName(result.recipeId)}</span>
-                <span className="result-status">
-                  {result.success ? '성공' : '실패'}
-                </span>
-                <span className="result-exp">+{result.experienceGained} 경험치</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 };

@@ -1,0 +1,352 @@
+/* Clean Alchemy Workshop Styles (stable)
+   New file to avoid corrupted original and ensure PostCSS can parse styles.
+*/
+
+.simple-alchemy-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  color: #e2e8f0;
+}
+
+.simple-alchemy-title {
+  text-align: center;
+  font-size: 28px;
+  color: #f7fafc;
+  margin-bottom: 25px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.simple-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.simple-tab-button {
+  background: transparent;
+  color: #a0aec0;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin: 0 4px;
+}
+
+.simple-tab-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.simple-tab-button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.simple-tab-content {
+  min-height: 500px;
+}
+
+.materials-display {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 25px;
+  border: 2px solid #4a5568;
+}
+
+.materials-title {
+  font-size: 20px;
+  color: #f7fafc;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.material-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #4a5568;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.material-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #667eea;
+}
+
+.material-item.selected {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: #667eea;
+}
+
+.material-name {
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.material-count {
+  background: #667eea;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.simple-recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.simple-recipe-card {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid #4a5568;
+  transition: all 0.3s ease;
+}
+
+.simple-recipe-card:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.simple-recipe-card.unavailable {
+  opacity: 0.6;
+  border-color: #e53e3e;
+}
+
+.recipe-name {
+  color: #f7fafc;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.recipe-description {
+  color: #a0aec0;
+  margin-bottom: 15px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.recipe-materials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.material-tag {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid #667eea;
+}
+
+.material-tag.insufficient {
+  background: rgba(229, 62, 62, 0.2);
+  color: #e53e3e;
+  border-color: #e53e3e;
+}
+
+.recipe-effects {
+  margin-bottom: 15px;
+}
+
+.effect-item {
+  background: rgba(56, 178, 172, 0.2);
+  color: #38b2ac;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 4px;
+  border-left: 3px solid #38b2ac;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.craft-button,
+.upgrade-button {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+}
+
+.craft-button:hover,
+.upgrade-button:hover {
+  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
+}
+
+.craft-button:disabled,
+.upgrade-button:disabled {
+  background: #4a5568;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.upgrade-section {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.upgrade-title {
+  font-size: 22px;
+  color: #f7fafc;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.upgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.upgrade-card {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 20px;
+  border: 2px solid #4a5568;
+  transition: all 0.3s ease;
+}
+
+.upgrade-card:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+}
+
+.upgrade-type {
+  font-size: 18px;
+  font-weight: bold;
+  color: #f7fafc;
+  text-align: center;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: rgba(102, 126, 234, 0.2);
+  border-radius: 8px;
+}
+
+.upgrade-requirements {
+  margin-bottom: 15px;
+}
+
+.upgrade-requirements h4 {
+  color: #e2e8f0;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.requirement-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.requirement-name {
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+.requirement-amount {
+  color: #38b2ac;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.requirement-amount.insufficient {
+  color: #e53e3e;
+}
+
+.upgrade-success-rate {
+  text-align: center;
+  color: #fbbf24;
+  font-weight: bold;
+  margin-bottom: 15px;
+  padding: 8px;
+  background: rgba(251, 191, 36, 0.2);
+  border-radius: 6px;
+}
+
+.no-recipes-message {
+  text-align: center;
+  color: #a0aec0;
+  font-size: 16px;
+  padding: 40px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  border: 2px dashed #4a5568;
+}
+
+@media (max-width: 768px) {
+  .simple-alchemy-container {
+    padding: 15px;
+    margin: 10px;
+  }
+  
+  .simple-tabs {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .simple-tab-button {
+    width: 100%;
+  }
+  
+  .materials-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .simple-recipe-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .upgrade-grid {
+    grid-template-columns: 1fr;
+  }
+}
