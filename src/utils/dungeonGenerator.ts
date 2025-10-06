@@ -283,15 +283,16 @@ const createConnections = (rooms: DungeonRoom[], grid: (DungeonRoom | null)[][])
   console.log('보장된 경로:', guaranteedPath)
   
   if (guaranteedPath.length === 0) {
-    console.error('입구에서 출구로의 경로를 찾을 수 없습니다! 나머지 연결 로직으로 보완합니다.')
-  } else {
-    // 2단계: 보장된 경로를 따라 양방향 연결 생성
-    for (let i = 0; i < guaranteedPath.length - 1; i++) {
-      const current = guaranteedPath[i]
-      const next = guaranteedPath[i + 1]
+    console.error('입구에서 출구로의 경로를 찾을 수 없습니다!')
+    return
+  }
+  
+  // 2단계: 보장된 경로를 따라 양방향 연결 생성
+  for (let i = 0; i < guaranteedPath.length - 1; i++) {
+    const current = guaranteedPath[i]
+    const next = guaranteedPath[i + 1]
     
-      addBidirectionalConnection(rooms, current, next)
-    }
+    addBidirectionalConnection(rooms, current, next)
   }
   
   // 3단계: 추가 양방향 연결 생성 (연결성 개선을 위해 확률 증가)
@@ -371,24 +372,57 @@ export const generateDungeonFloor = (
   
   const { roomsPerFloor, treasureChance, eventChance } = mergedConfig
 
-  const grid: (DungeonRoom | null)[][] = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null))
-  const rooms: DungeonRoom[] = []
-  
-  // 랜덤 위치 생성
-  const positions: Position[] = []
-  for (let y = 0; y < GRID_SIZE; y++) {
-    for (let x = 0; x < GRID_SIZE; x++) {
-      positions.push({ x, y })
+  let grid: (DungeonRoom | null)[][] = [];
+  let rooms: DungeonRoom[] = [];
+  let selectedPositions: Position[] = [];
+  let entrancePos: Position | undefined;
+  let exitPos: Position | undefined;
+  let pathFound = false;
+  let attempts = 0;
+  const MAX_ATTEMPTS = 100; // 무한 루프 방지
+
+  while (!pathFound && attempts < MAX_ATTEMPTS) {
+    attempts++;
+    const tempGrid: (DungeonRoom | null)[][] = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+    
+    const positions: Position[] = [];
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        positions.push({ x, y });
+      }
+    }
+    
+    const shuffledPositions = positions.sort(() => Math.random() - 0.5);
+    selectedPositions = shuffledPositions.slice(0, Math.min(roomsPerFloor, 16));
+    
+    entrancePos = selectedPositions[0];
+    exitPos = selectedPositions[selectedPositions.length - 1];
+
+    // 경로 탐색을 위해 임시 그리드에 위치 표시
+    selectedPositions.forEach(pos => {
+      tempGrid[pos.y][pos.x] = { id: 'temp', type: 'empty' } as DungeonRoom;
+    });
+
+    if (entrancePos && exitPos) {
+      const path = findPath(entrancePos, exitPos, tempGrid);
+      if (path.length > 0) {
+        pathFound = true;
+      }
     }
   }
-  
-  // 위치 섞기
-  const shuffledPositions = positions.sort(() => Math.random() - 0.5)
-  const selectedPositions = shuffledPositions.slice(0, Math.min(roomsPerFloor, 16))
+
+  if (!pathFound) {
+    console.error(`Dungeon Generation Warning: Could not find a guaranteed path after ${MAX_ATTEMPTS} attempts. The dungeon may be unbeatable.`);
+  }
+
+  // 최종 확정된 위치로 실제 그리드와 방 목록 생성
+  grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+  rooms = [];
   
   // 첫 번째는 입구, 마지막은 출구
-  const entrancePos = selectedPositions[0]
-  const exitPos = selectedPositions[selectedPositions.length - 1]
+  // entrancePos와 exitPos가 while 루프에서 할당되었으므로 non-null assertion 사용
+  entrancePos = entrancePos!;
+  exitPos = exitPos!;
   
   // 시작방 생성
   const startRoom: DungeonRoom = {
