@@ -190,7 +190,6 @@ function App() {
 
   // 초기화 실행 (중복 방지)
   useEffect(() => {
-    /*
     const gameStore = useGameStore.getState();
     const inventoryStore = useInventoryStore.getState();
     
@@ -274,7 +273,8 @@ function App() {
 
     // 🔥 스킬 강화 시스템 초기화
     initializeSkillEnhancementSystem();
-    */
+
+    // 던전 초기화는 하지 않음 (마을에서 시작)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
